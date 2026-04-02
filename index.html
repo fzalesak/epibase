@@ -3,12 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YTHDF2 Database</title>
+<title>Epibase</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://unpkg.com/smiles-drawer@2.0.1/dist/smiles-drawer.min.js"
   onload="window.smilesLibLoaded=true; renderSmiles();"
   onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/smiles-drawer@2.0.1/dist/smiles-drawer.min.js';s.onload=function(){window.smilesLibLoaded=true;renderSmiles();};document.head.appendChild(s);"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <style>
 :root {
   --bg: #f6f9fc;
@@ -217,7 +221,7 @@ textarea { resize: vertical; font-family: 'Inter', sans-serif !important; font-s
 </style>
 </head>
 <body>
-<div class="shell">
+<div class="shell" id="app-shell" style="display:none">
 
 <!-- Sidebar -->
 <aside class="sidebar">
@@ -241,6 +245,10 @@ textarea { resize: vertical; font-family: 'Inter', sans-serif !important; font-s
       <div class="ss-item">Compounds<strong id="ss-n">0</strong></div>
       <div class="ss-item">Best TR-FRET DF2<strong id="ss-b">—</strong></div>
       <div class="ss-item">Best THP-1 GI50<strong id="ss-cell">—</strong></div>
+      <div style="border-top:1px solid rgba(255,255,255,.08);margin-top:8px;padding-top:10px;display:flex;flex-direction:column;gap:6px">
+        <div id="sb-user-email" style="font-size:10px;color:rgba(255,255,255,.35);word-break:break-all"></div>
+        <button onclick="document.getElementById('admin-modal').style.display='flex'" style="font-size:11px;padding:5px 10px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.5);border:none;border-radius:var(--radius);cursor:pointer;text-align:left">⚙ Manage users</button>
+      </div>
     </div>
   </div>
 </aside>
@@ -2596,23 +2604,146 @@ function loadDemo() {
   upd();
 }
 
+// ── Firebase ─────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDTEYfqVxRFODdnddVplQQGRJHPM80_HTA",
+  authDomain: "epibase-e36ba.firebaseapp.com",
+  projectId: "epibase-e36ba",
+  storageBucket: "epibase-e36ba.firebasestorage.app",
+  messagingSenderId: "67631441023",
+  appId: "1:67631441023:web:09f80abad6405040554b4a"
+};
+firebase.initializeApp(firebaseConfig);
+const db   = firebase.firestore();
+const auth = firebase.auth();
+
+let currentUser = null;
+
+// ── Auth flow ─────────────────────────────────────────────────────
+async function isApprovedUser(email) {
+  try {
+    // Bootstrap: if no users exist at all, approve the first person and make them admin
+    const allUsers = await db.collection('users').limit(1).get();
+    if (allUsers.empty) {
+      await db.collection('users').doc(email).set({ approved: true, addedBy: 'bootstrap', addedAt: new Date().toISOString() });
+      return true;
+    }
+    const doc = await db.collection('users').doc(email).get();
+    return doc.exists && doc.data().approved === true;
+  } catch(e) { return false; }
+}
+
+auth.onAuthStateChanged(async function(user) {
+  if (!user) {
+    showLoginScreen();
+    return;
+  }
+  const approved = await isApprovedUser(user.email);
+  if (!approved) {
+    document.getElementById('login-error').style.display = '';
+    document.getElementById('login-error').textContent = `Access denied. ${user.email} is not an approved user. Please contact your administrator.`;
+    showLoginScreen();
+    await auth.signOut();
+    return;
+  }
+  currentUser = user;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'grid';
+  document.getElementById('sb-user-email').textContent = user.email;
+  document.getElementById('admin-current-user').textContent = user.email;
+  await loadData();
+  upd();
+  loadAdminUsers();
+});
+
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+document.getElementById('google-signin-btn').addEventListener('click', function() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(function(err) {
+    document.getElementById('login-error').style.display = '';
+    document.getElementById('login-error').textContent = 'Sign-in failed: ' + err.message;
+  });
+});
+
+function firebaseSignOut() {
+  auth.signOut();
+  document.getElementById('admin-modal').style.display = 'none';
+}
+
+// ── Save / Load ───────────────────────────────────────────────────
+let _saveTimer = null;
 function saveData() {
-  try { localStorage.setItem('caflisch_cpds', JSON.stringify(cpds)); } catch(e) {}
-  try { localStorage.setItem('caflisch_synth', JSON.stringify(synthPlans)); } catch(e) {}
+  // Debounce — wait 800ms after last change before writing to Firestore
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async function() {
+    if (!currentUser) return;
+    try {
+      await db.collection('appdata').doc('compounds').set({ data: JSON.stringify(cpds) });
+      await db.collection('appdata').doc('synthplans').set({ data: JSON.stringify(synthPlans) });
+    } catch(e) { console.error('Save failed:', e); }
+  }, 800);
 }
 
-function loadData() {
+async function loadData() {
   try {
-    const saved = localStorage.getItem('caflisch_cpds');
-    if (saved) { cpds = JSON.parse(saved); }
+    const cpdDoc = await db.collection('appdata').doc('compounds').get();
+    if (cpdDoc.exists) cpds = JSON.parse(cpdDoc.data().data);
   } catch(e) {}
   try {
-    const saved = localStorage.getItem('caflisch_synth');
-    if (saved) { synthPlans = JSON.parse(saved); }
+    const synDoc = await db.collection('appdata').doc('synthplans').get();
+    if (synDoc.exists) synthPlans = JSON.parse(synDoc.data().data);
   } catch(e) {}
 }
 
-// Start clean — no demo data loaded
+// ── Admin: user management ────────────────────────────────────────
+async function loadAdminUsers() {
+  const list = document.getElementById('admin-user-list');
+  if (!list) return;
+  try {
+    const snap = await db.collection('users').get();
+    list.innerHTML = '';
+    if (snap.empty) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--muted)">No approved users yet.</div>';
+      return;
+    }
+    snap.forEach(doc => {
+      const email = doc.id;
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface2);border-radius:var(--radius);border:0.5px solid var(--border)';
+      div.innerHTML = `<span style="font-size:13px">${email}</span><button onclick="adminRemoveUser('${email}')" style="font-size:11px;padding:3px 8px;border:0.5px solid rgba(139,32,32,.3);border-radius:var(--radius);background:none;cursor:pointer;color:var(--danger)">Remove</button>`;
+      list.appendChild(div);
+    });
+  } catch(e) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--danger)">Could not load users.</div>';
+  }
+}
+
+async function adminAddUser() {
+  const email = document.getElementById('admin-email-input').value.trim().toLowerCase();
+  const msg = document.getElementById('admin-msg');
+  if (!email || !email.includes('@')) { msg.style.color='var(--danger)'; msg.textContent='Please enter a valid email.'; return; }
+  try {
+    await db.collection('users').doc(email).set({ approved: true, addedBy: currentUser.email, addedAt: new Date().toISOString() });
+    document.getElementById('admin-email-input').value = '';
+    msg.style.color = 'var(--accent)';
+    msg.textContent = `✓ ${email} added successfully.`;
+    loadAdminUsers();
+    setTimeout(() => msg.textContent = '', 3000);
+  } catch(e) { msg.style.color='var(--danger)'; msg.textContent='Failed to add user: ' + e.message; }
+}
+
+async function adminRemoveUser(email) {
+  if (email === currentUser.email) { alert("You can't remove yourself."); return; }
+  if (!confirm(`Remove ${email} from approved users?`)) return;
+  try {
+    await db.collection('users').doc(email).delete();
+    loadAdminUsers();
+  } catch(e) { alert('Failed to remove user: ' + e.message); }
+}
+// ─────────────────────────────────────────────────────────────────
 // ── Custom date picker ──────────────────────────────────────────
 const calState = {};
 
@@ -2699,8 +2830,8 @@ document.addEventListener('click', function(e) {
 });
 // ────────────────────────────────────────────────────────────────
 
-loadData();
-upd();
+// Init handled by Firebase auth state change above
+// ────────────────────────────────────────────────────────────────
 
 document.getElementById('demo-confirm').addEventListener('click', function(e) {
   if (e.target === this) this.style.display='none';
@@ -2809,5 +2940,41 @@ document.addEventListener('keydown', function(e) {
   box-shadow:0 4px 16px rgba(0,0,0,0.13); padding:10px 13px; min-width:160px;
   font-family:'Inter',sans-serif; font-size:12px; line-height:1.5;
 "></div>
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:#16385a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem">
+  <div style="text-align:center;margin-bottom:1rem">
+    <div style="font-size:32px;font-weight:700;color:#fff;letter-spacing:-.02em">Epi<span style="color:#5DCAA5">base</span></div>
+    <div style="font-size:13px;color:rgba(255,255,255,.45);margin-top:6px;letter-spacing:.04em;text-transform:uppercase">Research Database</div>
+  </div>
+  <button id="google-signin-btn" style="display:flex;align-items:center;gap:12px;background:#fff;color:#333;border:none;border-radius:8px;padding:12px 24px;font-size:14px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2)">
+    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Sign in with Google
+  </button>
+  <div id="login-error" style="display:none;color:#ff8a80;font-size:13px;text-align:center;max-width:300px"></div>
+  <div style="font-size:11px;color:rgba(255,255,255,.25);margin-top:2rem">Access restricted to approved users only</div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);border:0.5px solid var(--border);width:460px;max-width:95vw;max-height:88vh;overflow-y:auto;padding:1.75rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+      <h2 style="font-size:18px;font-weight:600;margin:0">User Management</h2>
+      <button onclick="document.getElementById('admin-modal').style.display='none'" style="font-size:18px;line-height:1;padding:4px 10px;border:none;background:none;cursor:pointer;color:var(--muted)">×</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:1rem">Only approved Google email addresses can access Epibase.</div>
+    <div style="display:flex;gap:8px;margin-bottom:1.25rem">
+      <input id="admin-email-input" type="email" placeholder="user@gmail.com" style="flex:1;font-size:13px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--text)">
+      <button onclick="adminAddUser()" style="background:#1D9E75;color:#fff;border:none;border-radius:var(--radius);padding:8px 16px;font-size:13px;cursor:pointer;white-space:nowrap">Add user</button>
+    </div>
+    <div id="admin-user-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div id="admin-msg" style="margin-top:10px;font-size:12px;color:var(--accent)"></div>
+    <div style="margin-top:1.5rem;border-top:0.5px solid var(--border);padding-top:1rem">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Signed in as</div>
+      <div id="admin-current-user" style="font-size:13px;font-weight:500"></div>
+      <button onclick="firebaseSignOut()" style="margin-top:10px;font-size:12px;padding:6px 14px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface);cursor:pointer;color:var(--muted)">Sign out</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
