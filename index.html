@@ -1,0 +1,2997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epibase</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://unpkg.com/smiles-drawer@2.0.1/dist/smiles-drawer.min.js"
+  onload="window.smilesLibLoaded=true; if(typeof renderSmiles==='function') renderSmiles();"
+  onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/smiles-drawer@2.0.1/dist/smiles-drawer.min.js';s.onload=function(){window.smilesLibLoaded=true;if(typeof renderSmiles==='function') renderSmiles();};document.head.appendChild(s);"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<style>
+:root {
+  --bg: #f6f9fc;
+  --surface: #ffffff;
+  --surface2: #eef5f9;
+  --border: rgba(0,0,0,0.1);
+  --border2: rgba(0,0,0,0.18);
+  --text: #1a1a18;
+  --muted: #6b6b60;
+  --accent: #1D9E75;
+  --accent2: #5DCAA5;
+  --tr: #1a3a5c;
+  --fp: #2a5c1a;
+  --cb: #5c3a1a;
+  --danger: #8b2020;
+  --warn: #7a4a00;
+  --radius: 6px;
+  --radius-lg: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+/* Layout */
+.shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.sidebar { background: #16385a; color: #fff; padding: 2rem 1.5rem; display: flex; flex-direction: column; gap: 2rem; position: sticky; top: 0; height: 100vh; }
+.logo { font-size: 18px; font-weight: 600; letter-spacing: -.02em; line-height: 1.3; }
+.logo span { color: #5DCAA5; }
+.logo small { display: block; font-size: 11px; font-weight: 400; color: rgba(255,255,255,.45); letter-spacing: .06em; text-transform: uppercase; margin-top: 4px; font-family: 'Inter', sans-serif; }
+nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius); cursor: pointer; font-size: 13px; color: rgba(255,255,255,.55); transition: all .15s; border: none; background: none; width: 100%; text-align: left; font-family: 'Inter', sans-serif; }
+.nav-item:hover { background: rgba(255,255,255,.07); color: rgba(255,255,255,.85); }
+.nav-item.on { background: rgba(93,202,165,.18); color: #fff; }
+.nav-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-tr { background: #6ab0e8; }
+.dot-fp { background: #5DCAA5; }
+.dot-cb { background: #e8a86a; }
+.dot-all { background: rgba(255,255,255,.35); }
+.sidebar-stats { margin-top: auto; border-top: 1px solid rgba(255,255,255,.1); padding-top: 1.5rem; display: flex; flex-direction: column; gap: 10px; }
+.ss-item { font-size: 11px; color: rgba(159,225,203,.6); font-family: 'Inter', sans-serif; }
+.ss-item strong { display: block; font-size: 16px; color: #fff; font-weight: 500; margin-top: 1px; font-family: 'Inter', sans-serif; }
+
+/* Main */
+.main { padding: 2.5rem 2.5rem 4rem; }
+.page { display: none; }
+.page.on { display: block; }
+.page-hdr { margin-bottom: 2rem; }
+.page-hdr h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.page-hdr p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* Cards */
+.card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; }
+.card-title { font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; font-family: 'Inter', sans-serif; }
+
+/* Assay group headers */
+.assay-hdr { display: flex; align-items: center; gap: 8px; margin: 1.5rem 0 .75rem; }
+.assay-hdr:first-child { margin-top: 0; }
+.assay-pill { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 20px; font-family: 'Inter', sans-serif; letter-spacing: .03em; }
+.pill-tr { background: #ddeef9; color: var(--tr); }
+.pill-fp { background: #ddf2e0; color: var(--fp); }
+.pill-cb { background: #f9eddd; color: var(--cb); }
+.assay-hdr span.title { font-size: 12px; font-weight: 500; color: var(--muted); }
+
+/* Form */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.form-grid.g3 { grid-template-columns: repeat(3, 1fr); }
+.fld { display: flex; flex-direction: column; gap: 4px; }
+.fld label { font-size: 11px; font-weight: 500; color: var(--muted); font-family: 'Inter', sans-serif; }
+.fld label .star { color: var(--accent); margin-left: 3px; }
+input[type=text], input[type=number], select, textarea {
+  font-size: 13px; font-family: 'Inter', sans-serif;
+  padding: 8px 10px; border: 0.5px solid var(--border2);
+  border-radius: var(--radius); background: var(--surface2);
+  color: var(--text); outline: none; transition: border .15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent2); background: #fff; }
+input[readonly] { opacity: .6; cursor: default; }
+.btn-row { display: flex; gap: 8px; margin-top: 1.5rem; flex-wrap: wrap; }
+button { font-family: 'Inter', sans-serif; cursor: pointer; border-radius: var(--radius); font-size: 13px; border: 0.5px solid var(--border2); padding: 8px 18px; background: var(--surface); color: var(--text); transition: all .15s; }
+button:hover { background: var(--surface2); }
+.btn-primary { background: #1D9E75; color: #fff; border-color: #1D9E75; }
+.btn-primary:hover { background: #5DCAA5; border-color: #5DCAA5; }
+.btn-danger { color: var(--danger); border-color: rgba(139,32,32,.25); }
+.btn-danger:hover { background: #fdf0f0; }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+
+/* Stats row */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 2rem; }
+.stat-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; }
+.stat-label { font-size: 10px; font-family: 'Inter', sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.stat-val { font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+
+/* Table */
+.tbl-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 0.5px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+th { text-align: center; padding: 9px 12px; font-size: 11px; font-weight: 600; color: var(--muted); background: var(--surface2); border-bottom: 0.5px solid var(--border); white-space: nowrap; font-family: 'Inter', sans-serif; letter-spacing: .01em; }
+td { padding: 10px 12px; border-bottom: 0.5px solid var(--border); white-space: nowrap; font-family: 'Inter', sans-serif; font-size: 13px; text-align: center; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { filter: brightness(0.96); }
+tr.cpd-row { cursor: pointer; }
+.modal-section { margin-bottom:1.25rem }
+.modal-section-title { font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;font-family:'Inter', sans-serif; }
+.modal-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:8px }
+.modal-cell { background:var(--surface2);border-radius:var(--radius);padding:8px 10px }
+.modal-cell-label { font-size:10px;color:var(--muted);margin-bottom:2px }
+.modal-cell-val { font-size:14px;font-weight:500 }
+.td-primary { color: var(--tr); font-weight: 600; }
+.td-fp { color: var(--fp); }
+.td-cb { color: var(--cb); }
+.td-mono { font-family: 'Inter', sans-serif; }
+
+/* Badges */
+.badge { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 10px; font-weight: 500; font-family: 'Inter', sans-serif; }
+.bh { background: #ddf2e0; color: #1a5c2a; }
+.bm { background: #fef0d8; color: #7a4a00; }
+.bl { background: #fde8e8; color: var(--danger); }
+.bn { background: var(--surface2); color: var(--muted); }
+
+.btn-add-cpd {
+  width: 100%; padding: 13px 16px; font-size: 14px; font-weight: 600;
+  font-family: 'Inter', sans-serif; cursor: pointer; border-radius: var(--radius);
+  background: var(--accent2); color: #fff; border: none;
+  letter-spacing: .01em; transition: background .15s;
+  margin-top: 1rem;
+}
+.btn-add-cpd:hover { background: #38b07a; }
+
+.col-tick { display:inline-flex; align-items:center; gap:5px; font-size:11px; cursor:pointer; padding:3px 8px; border-radius:20px; border:0.5px solid var(--border2); background:var(--surface); color:var(--text); }
+.col-tick input { cursor:pointer; }
+.col-tick span { padding:1px 5px; border-radius:3px; font-size:11px; font-weight:500; }
+.col-hidden { display:none !important; }
+#cmp-modal, #cmp-modal *, #cmp-modal td, #cmp-modal th, #cmp-modal span { font-family: 'Inter', sans-serif !important; font-weight: 400 !important; }
+#cmp-modal th { font-weight: 600 !important; }
+#cmp-modal td.mono { font-family: 'Inter', sans-serif !important; }
+.sort-hl { background:rgba(55,138,221,0.07) !important; }
+
+.meas-block { margin-bottom: 8px; }
+.meas-row { display:grid; gap:8px; align-items:center; padding:8px 10px; background:var(--surface2); border-radius:var(--radius); margin-bottom:6px; border:0.5px solid var(--border); }
+.meas-row input[type=number] { background:var(--surface); }
+.meas-row input[type=date] { background:var(--surface); font-family:'Inter',sans-serif; font-size:12px; padding:6px 8px; }
+.meas-add-btn { font-size:12px; padding:5px 12px; border:0.5px dashed var(--border2); border-radius:var(--radius); background:none; color:var(--muted); cursor:pointer; margin-bottom:1rem; }
+.meas-add-btn:hover { background:#E1F5EE; color:#085041; }
+.meas-avg { font-size:11px; color:var(--muted); margin-top:2px; }
+.meas-history { margin-top:6px; border-top:0.5px solid var(--border); padding-top:6px; }
+.meas-history-row { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); padding:2px 0; }
+.meas-toggle { font-size:11px; color:var(--accent2); cursor:pointer; background:none; border:none; padding:0; margin-top:4px; }
+
+/* Custom date picker */
+.datepicker-wrap { position: relative; display: inline-block; }
+.datepicker-input { font-size:11px; padding:4px 8px; width:160px; border-radius:var(--radius); border:0.5px solid var(--border2); background:var(--surface); color:var(--text); cursor:pointer; }
+.datepicker-input:focus { outline:none; border-color:var(--accent2); }
+.cal-dropdown { position:absolute; top:calc(100% + 4px); right:0; background:var(--surface); border:0.5px solid var(--border2); border-radius:var(--radius-lg); box-shadow:0 4px 16px rgba(0,0,0,0.12); z-index:3000; width:240px; padding:10px; display:none; }
+.cal-dropdown.open { display:block; }
+.cal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.cal-nav { background:none; border:none; cursor:pointer; font-size:14px; color:var(--muted); padding:2px 6px; border-radius:4px; }
+.cal-nav:hover { background:var(--surface2); }
+.cal-month-label { font-size:13px; font-weight:500; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.cal-day-name { font-size:10px; color:var(--muted); text-align:center; padding:2px 0; }
+.cal-day { font-size:12px; text-align:center; padding:4px 2px; border-radius:4px; cursor:pointer; border:none; background:none; color:var(--text); }
+.cal-day:hover { background:var(--surface2); }
+.cal-day.today { font-weight:600; color:var(--accent); }
+.cal-day.selected { background:var(--accent); color:#fff; }
+.cal-day.other-month { color:var(--muted); opacity:0.4; }
+.cal-day:disabled { opacity:0; cursor:default; }
+
+/* Sort icons */
+.sort-icon { font-size: 10px; opacity: 0.35; margin-left: 3px; }
+th:hover .sort-icon { opacity: 0.7; }
+.sort-active { opacity: 1 !important; }
+
+/* Empty state */
+.empty { text-align: center; padding: 4rem 2rem; color: var(--muted); font-size: 13px; background: var(--surface); border-radius: var(--radius-lg); border: 0.5px solid var(--border); }
+.empty strong { display: block; font-size: 15px; color: var(--text); margin-bottom: 6px; }
+
+/* Plot controls */
+.ctrl-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 1.5rem; }
+.ctrl-grp { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.ctrl-grp label { font-size: 10px; font-weight: 500; font-family: 'Inter', sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.chart-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; }
+.chart-wrap { position: relative; width: 100%; height: 360px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 1rem; font-family: 'Inter', sans-serif; }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.lsq { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+/* DR page */
+.dr-layout { display: grid; grid-template-columns: 340px 1fr; gap: 1.5rem; }
+.dr-inputs { display: flex; flex-direction: column; gap: 12px; }
+textarea { resize: vertical; font-family: 'Inter', sans-serif !important; font-size: 12px; min-height: 80px; }
+.dr-result { font-size: 13px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface2); border: 0.5px solid var(--border); font-family: 'Inter', sans-serif; color: var(--muted); }
+.dr-result strong { color: var(--text); font-size: 15px; }
+.curves-list { display: flex; flex-direction: column; gap: 6px; margin-top: 1rem; }
+.curve-item { display: flex; align-items: center; gap: 10px; font-size: 12px; font-family: 'Inter', sans-serif; padding: 6px 10px; background: var(--surface2); border-radius: var(--radius); }
+.curve-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* Import */
+.import-hint { font-size: 12px; color: var(--muted); font-family: 'Inter', sans-serif; background: var(--surface2); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 1rem; line-height: 1.8; }
+.import-hint code { background: rgba(0,0,0,.07); padding: 1px 5px; border-radius: 3px; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .form-grid.g3 { grid-template-columns: repeat(2, 1fr); }
+  .dr-layout { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="shell" id="app-shell" style="display:none">
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div>
+    <div class="logo">YTHDF2<span> Database</span></div>
+  </div>
+  <nav>
+    <button class="nav-item on" onclick="go('overview')"><span class="nav-dot dot-all"></span>Overview</button>
+    <button class="nav-item" onclick="go('plots')"><span class="nav-dot dot-tr"></span>Plots</button>
+    <button class="nav-item" onclick="go('sel')"><span class="nav-dot dot-cb"></span>Selectivity</button>
+    <button class="nav-item" onclick="go('synth')"><span class="nav-dot" style="background:#a78bfa"></span>Design/Synthesis</button>
+  </nav>
+  <div style="margin-top:auto">
+    <div id="sb-compare-wrap" style="display:none;margin-bottom:8px">
+      <button id="sb-btn-compare" onclick="openCompare()" style="width:100%;padding:9px 10px;font-size:13px;font-weight:500;background:#c0392b;color:#fff;border:none;border-radius:var(--radius);cursor:pointer">Compare selected (<span id="sb-compare-count">0</span>)</button>
+      <button onclick="document.querySelectorAll('.cmp-cb').forEach(cb=>cb.checked=false);updateCompareBtn();" style="width:100%;margin-top:8px;padding:5px 10px;font-size:11px;font-weight:400;background:rgba(192,57,43,0.15);color:rgba(255,160,150,0.6);border:none;border-radius:var(--radius);cursor:pointer">Clear selection</button>
+      <div id="sb-compare-hint" style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px;text-align:center;display:none">Select 2+ compounds to compare</div>
+    </div>
+    <button onclick="go('entry')" style="width:100%;padding:10px;font-size:13px;font-weight:500;background:#1D9E75;color:#fff;border:none;border-radius:var(--radius);cursor:pointer;margin-bottom:1rem">+ Add compound</button>
+    <div class="sidebar-stats">
+      <div class="ss-item">Compounds<strong id="ss-n">0</strong></div>
+      <div class="ss-item">Best TR-FRET DF2<strong id="ss-b">—</strong></div>
+      <div class="ss-item">Best THP-1 GI50<strong id="ss-cell">—</strong></div>
+      <div style="border-top:1px solid rgba(255,255,255,.08);margin-top:8px;padding-top:10px;display:flex;flex-direction:column;gap:6px">
+        <div id="sb-user-email" style="font-size:10px;color:rgba(255,255,255,.35);word-break:break-all"></div>
+        <button onclick="document.getElementById('admin-modal').style.display='flex'" style="font-size:11px;padding:5px 10px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.5);border:none;border-radius:var(--radius);cursor:pointer;text-align:left">⚙ Manage users</button>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- OVERVIEW PAGE -->
+  <div id="page-overview" class="page on">
+    <div class="page-hdr" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <h1>Compound overview</h1>
+        <p>All entered compounds at a glance.</p>
+      </div>
+      <button id="ov-export" onclick="exportCSV()" style="display:none;font-size:12px;padding:7px 14px">Export CSV</button>
+    </div>
+    <div id="ov-empty" class="empty"><strong>No compounds yet</strong>Go to "Add compound" to enter your first compound, or use "Import CSV" to load existing data.</div>
+    <div id="ov-tbl-wrap" style="display:none">
+      <div style="margin-bottom:14px">
+        <div style="position:relative;max-width:320px">
+          <input id="ov-search" type="text" placeholder="Search by compound ID…" oninput="filterOv()" style="width:100%;padding:8px 10px 8px 34px;font-size:13px;font-family:'Inter',sans-serif;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface);color:var(--text);outline:none">
+          <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <button id="ov-search-clear" onclick="document.getElementById('ov-search').value='';filterOv()" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:0;line-height:1">×</button>
+        </div>
+        <div id="ov-search-count" style="font-size:11px;color:var(--muted);margin-top:5px;display:none"></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px;align-items:flex-start">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <div style="font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Target</div>
+            <button onclick="toggleAllGroup(this,['df2','df3','df1'])" style="font-size:10px;padding:1px 7px;border:0.5px solid var(--border2);border-radius:10px;background:var(--surface);cursor:pointer;color:var(--muted)">Hide all</button>
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <label class="col-tick"><input type="checkbox" id="cb-df2" checked onchange="toggleCol('df2')" style="width:auto"> <span style="background:#ddeef9;color:#1a3a5c">DF2</span></label>
+            <label class="col-tick"><input type="checkbox" id="cb-df1" checked onchange="toggleCol('df1')" style="width:auto"> <span style="background:#e8f4e8;color:#2a5c1a">DF1</span></label>
+            <label class="col-tick"><input type="checkbox" id="cb-df3" checked onchange="toggleCol('df3')" style="width:auto"> <span style="background:#f0eaf9;color:#4a2a7c">DF3</span></label>
+          </div>
+        </div>
+        <div style="width:0.5px;background:var(--border);align-self:stretch"></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <div style="font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Cell line</div>
+            <button onclick="toggleAllGroup(this,['thp','mol'])" style="font-size:10px;padding:1px 7px;border:0.5px solid var(--border2);border-radius:10px;background:var(--surface);cursor:pointer;color:var(--muted)">Hide all</button>
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <label class="col-tick"><input type="checkbox" id="cb-thp" checked onchange="toggleCol('thp')" style="width:auto"> <span style="background:#f9eddd;color:#5c3a1a">THP-1</span></label>
+            <label class="col-tick"><input type="checkbox" id="cb-mol" checked onchange="toggleCol('mol')" style="width:auto"> <span style="background:#f9eddd;color:#5c3a1a">MOLM-13</span></label>
+          </div>
+        </div>
+        <div style="width:0.5px;background:var(--border);align-self:stretch"></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <div style="font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Method</div>
+            <button onclick="toggleAllGroup(this,['tr','fp'])" style="font-size:10px;padding:1px 7px;border:0.5px solid var(--border2);border-radius:10px;background:var(--surface);cursor:pointer;color:var(--muted)">Hide all</button>
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <label class="col-tick"><input type="checkbox" id="cb-tr" checked onchange="toggleAssay('tr')" style="width:auto"> <span style="background:#e8e8e8;color:#444">TR-FRET</span></label>
+            <label class="col-tick"><input type="checkbox" id="cb-fp" checked onchange="toggleAssay('fp')" style="width:auto"> <span style="background:#e8e8e8;color:#444">FP</span></label>
+          </div>
+        </div>
+        <div style="width:0.5px;background:var(--border);align-self:stretch"></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <div style="font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Properties</div>
+            <button onclick="toggleAllProps(this)" style="font-size:10px;padding:1px 7px;border:0.5px solid var(--border2);border-radius:10px;background:var(--surface);cursor:pointer;color:var(--muted)">Hide all</button>
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <label class="col-tick"><input type="checkbox" id="cb-pmw" checked onchange="toggleCol('pmw')" style="width:auto"> <span style="background:#f1efe8;color:#444">MW</span></label>
+            <label class="col-tick"><input type="checkbox" id="cb-plogp" checked onchange="toggleCol('plogp')" style="width:auto"> <span style="background:#f1efe8;color:#444">LogP</span></label>
+            <label class="col-tick"><input type="checkbox" id="cb-ptpsa" checked onchange="toggleCol('ptpsa')" style="width:auto"> <span style="background:#f1efe8;color:#444">TPSA</span></label>
+            <label class="col-tick"><input type="checkbox" id="cb-ple" checked onchange="toggleCol('ple')" style="width:auto"> <span style="background:#f1efe8;color:#444">LE</span></label>
+            <label class="col-tick"><input type="checkbox" id="cb-plle" checked onchange="toggleCol('plle')" style="width:auto"> <span style="background:#f1efe8;color:#444">LLE</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="2" style="width:28px;vertical-align:bottom;padding:0 8px"><input type="checkbox" id="ov-check-all" onchange="toggleAllCompare(this)" style="cursor:pointer"></th>
+            <th rowspan="2" style="width:160px;vertical-align:bottom;cursor:pointer" onclick="sortOv('id')" id="th-id">Compound ID <span class="sort-icon" id="si-id">↕</span></th>
+            <th id="th-grp-df2" colspan="2" class="col-df2" style="text-align:center;border-bottom:0.5px solid var(--border);background:#ddeef9;color:#1a3a5c">DF2 (µM)</th>
+            <th id="th-grp-df1" colspan="2" class="col-df1" style="text-align:center;border-bottom:0.5px solid var(--border);background:#e8f4e8;color:#2a5c1a">DF1 (µM)</th>
+            <th id="th-grp-df3" colspan="2" class="col-df3" style="text-align:center;border-bottom:0.5px solid var(--border);background:#f0eaf9;color:#4a2a7c">DF3 (µM)</th>
+            <th class="col-thp" style="text-align:center;border-bottom:0.5px solid var(--border);background:#f9eddd;color:#5c3a1a">THP-1 (µM)</th>
+            <th class="col-mol" style="text-align:center;border-bottom:0.5px solid var(--border);background:#f9eddd;color:#5c3a1a">MOLM-13 (µM)</th>
+            <th colspan="5" class="col-pmw col-plogp col-ptpsa col-ple col-plle" style="text-align:center;border-bottom:0.5px solid var(--border);background:#f1efe8;color:#444">Properties</th>
+            <th rowspan="2" style="width:40px;vertical-align:bottom"></th>
+          </tr>
+          <tr>
+            <th class="col-df2 col-tr" style="width:80px;background:#ddeef9;color:#1a3a5c;cursor:pointer" onclick="sortOv('tr2')">TR-FRET <span class="sort-icon" id="si-tr2">↕</span></th>
+            <th class="col-df2 col-fp" style="width:72px;background:#ddeef9;color:#1a3a5c;cursor:pointer" onclick="sortOv('fp2')">FP <span class="sort-icon" id="si-fp2">↕</span></th>
+            <th class="col-df1 col-tr" style="width:80px;background:#e8f4e8;color:#2a5c1a;cursor:pointer" onclick="sortOv('tr1')">TR-FRET <span class="sort-icon" id="si-tr1">↕</span></th>
+            <th class="col-df1 col-fp" style="width:72px;background:#e8f4e8;color:#2a5c1a;cursor:pointer" onclick="sortOv('fp1')">FP <span class="sort-icon" id="si-fp1">↕</span></th>
+            <th class="col-df3 col-tr" style="width:80px;background:#f0eaf9;color:#4a2a7c;cursor:pointer" onclick="sortOv('tr3')">TR-FRET <span class="sort-icon" id="si-tr3">↕</span></th>
+            <th class="col-df3 col-fp" style="width:72px;background:#f0eaf9;color:#4a2a7c;cursor:pointer" onclick="sortOv('fp3')">FP <span class="sort-icon" id="si-fp3">↕</span></th>
+            <th class="col-thp" style="width:80px;background:#f9eddd;color:#5c3a1a;cursor:pointer" onclick="sortOv('thp')"><span class="sort-icon" id="si-thp">↕</span></th>
+            <th class="col-mol" style="width:80px;background:#f9eddd;color:#5c3a1a;cursor:pointer" onclick="sortOv('mol')"><span class="sort-icon" id="si-mol">↕</span></th>
+            <th class="col-pmw" style="background:#f1efe8;color:#444;cursor:pointer" onclick="sortOv('mw')">MW <span class="sort-icon" id="si-mw">↕</span></th>
+            <th class="col-plogp" style="background:#f1efe8;color:#444;cursor:pointer" onclick="sortOv('logp')">LogP <span class="sort-icon" id="si-logp">↕</span></th>
+            <th class="col-ptpsa" style="background:#f1efe8;color:#444;cursor:pointer" onclick="sortOv('tpsa')">TPSA <span class="sort-icon" id="si-tpsa">↕</span></th>
+            <th class="col-ple" style="background:#f1efe8;color:#444;cursor:pointer" onclick="sortOv('le')">LE <span class="sort-icon" id="si-le">↕</span></th>
+            <th class="col-plle" style="background:#f1efe8;color:#444;cursor:pointer" onclick="sortOv('lle')">LLE <span class="sort-icon" id="si-lle">↕</span></th>
+        </thead>
+        <tbody id="ov-tbody"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+
+
+
+
+  <div id="page-entry" class="page">
+    <div class="page-hdr">
+      <h1>Compound entry</h1>
+    </div>
+
+    <div class="card" style="margin-bottom:2rem">
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:1.25rem;align-items:start;margin-bottom:1.5rem">
+        <div>
+          <div class="fld" style="margin-bottom:1rem">
+            <label>Compound ID</label>
+            <input id="f-id" type="text" placeholder="e.g. CPD-001">
+          </div>
+          <div class="fld">
+            <label>SMILES</label>
+            <input id="f-smiles" type="text" placeholder="e.g. CC1=CC=C(C=C1)S(=O)(=O)N" oninput="renderSmiles()">
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <div id="smiles-preview" style="width:190px;height:150px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+            <span style="font-size:11px;color:var(--muted)">Structure preview</span>
+          </div>
+          <div id="smiles-flip-btns" style="display:none;gap:4px;display:flex">
+            <button onclick="flipStruct('smiles-preview','h')" title="Flip horizontal" style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↔</button>
+            <button onclick="flipStruct('smiles-preview','v')" title="Flip vertical" style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↕</button>
+            <button onclick="flipStruct('smiles-preview','r')" title="Rotate 90°" style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↻</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TR-FRET section -->
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+          <span class="assay-pill pill-tr" style="font-size:11px">TR-FRET — IC50 (µM)</span>
+          <div class="datepicker-wrap" style="position:relative"><input type="text" id="f-tr-date" class="datepicker-input" placeholder="Select date" readonly onclick="toggleCal('cal-tr')"><div id="cal-tr" class="cal-dropdown"></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div class="fld"><label>YTHDF2</label><input id="f-tr2" type="number" step="0.001" placeholder="µM"></div>
+          <div class="fld"><label>YTHDF1</label><input id="f-tr1" type="number" step="0.001" placeholder="µM"></div>
+          <div class="fld"><label>YTHDF3</label><input id="f-tr3" type="number" step="0.001" placeholder="µM"></div>
+          <div class="fld"><label>DC1</label><input id="f-dc1" type="number" step="0.001" placeholder="µM"></div>
+        </div>
+      </div>
+
+      <!-- FP section -->
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+          <span class="assay-pill pill-fp" style="font-size:11px">FP — IC50 (µM)</span>
+          <div class="datepicker-wrap" style="position:relative"><input type="text" id="f-fp-date" class="datepicker-input" placeholder="Select date" readonly onclick="toggleCal('cal-fp')"><div id="cal-fp" class="cal-dropdown"></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div class="fld"><label>YTHDF2</label><input id="f-fp2" type="number" step="0.001" placeholder="µM"></div>
+          <div class="fld"><label>YTHDF1</label><input id="f-fp1" type="number" step="0.001" placeholder="µM"></div>
+          <div class="fld"><label>YTHDF3</label><input id="f-fp3" type="number" step="0.001" placeholder="µM"></div>
+          <div class="fld"><label>YTHDC1</label><input id="f-fdc1" type="number" step="0.001" placeholder="µM"></div>
+        </div>
+      </div>
+
+      <!-- Cytotoxicity section -->
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+          <span class="assay-pill pill-cb" style="font-size:11px">Cytotoxicity — GI50 (µM)</span>
+          <div class="datepicker-wrap" style="position:relative"><input type="text" id="f-cb-date" class="datepicker-input" placeholder="Select date" readonly onclick="toggleCal('cal-cb')"><div id="cal-cb" class="cal-dropdown"></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+          <div class="fld"><label>THP-1</label><input id="f-thp" type="number" step="0.001" placeholder="µM"></div>
+          <div class="fld"><label>MOLM-13</label><input id="f-mol" type="number" step="0.001" placeholder="µM"></div>
+        </div>
+      </div>
+
+      <!-- Meta -->
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:1rem">
+        <div style="margin-bottom:0.75rem"><span class="assay-pill" style="background:rgba(0,0,0,0.06);color:var(--muted);font-size:11px">Properties</span></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div class="fld"><label>MW (Da)</label><input id="f-mw" type="number" placeholder="420"></div>
+          <div class="fld"><label>LogP</label><input id="f-logp" type="number" step="0.1" placeholder="2.4"></div>
+          <div class="fld"><label>TPSA (Å²)</label><input id="f-tpsa" type="number" placeholder="85"></div>
+          <div class="fld"><label>Notes</label><input id="f-note" type="text" placeholder="optional"></div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-primary" onclick="addCpd()"><span id="btn-add-lbl">Add compound</span></button>
+        <button class="btn-danger" id="btn-delete" onclick="deleteCurrent()" style="display:none;margin-left:auto">Delete compound</button>
+        <button onclick="exportCSV()" style="margin-left:auto">Export CSV</button>
+      </div>
+      <div id="entry-error" style="display:none;margin-top:10px;font-size:12px;color:var(--danger);padding:8px 12px;background:#fde8e8;border-radius:var(--radius);border:0.5px solid rgba(139,32,32,.2)"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">
+      <button onclick="document.getElementById('demo-confirm').style.display='flex'" style="font-size:10px;padding:3px 8px;color:var(--muted);border-color:var(--border);opacity:0.45;border-style:dashed">Load demo data</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Compounds</div><div class="stat-val" id="st-n">0</div></div>
+      <div class="stat-card"><div class="stat-label">Best TR-FRET DF2</div><div class="stat-val" id="st-b">—</div></div>
+      <div class="stat-card"><div class="stat-label">Avg DF1/DF2 sel.</div><div class="stat-val" id="st-sel">—</div></div>
+      <div class="stat-card"><div class="stat-label">Best THP-1 GI50</div><div class="stat-val" id="st-cell">—</div></div>
+    </div>
+
+    <div id="tbl-empty" class="empty"><strong>No compounds yet</strong>Add one above or use Import CSV to load existing data.</div>
+    <div id="tbl-wrap" class="tbl-wrap" style="display:none">
+      <table>
+        <thead><tr>
+          <th style="width:80px">ID</th>
+          <th style="width:68px">TR DF2</th>
+          <th style="width:58px">TR DF1</th>
+          <th style="width:58px">TR DF3</th>
+          <th style="width:62px">FP DF2</th>
+          <th style="width:58px">FP DF1</th>
+          <th style="width:58px">FP DF3</th>
+          <th style="width:68px">THP-1</th>
+          <th style="width:68px">MOLM-13</th>
+          <th style="width:68px">Cell shift</th>
+          <th style="width:60px">Potency</th>
+          <th style="width:40px"></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PLOTS PAGE -->
+  <div id="page-plots" class="page">
+    <div class="page-hdr">
+      <h1>Plots</h1>
+      <p>Visualize structure–activity relationships, potency comparisons, and assay correlations.</p>
+    </div>
+    <div class="ctrl-bar">
+      <div class="ctrl-grp">
+        <label>Plot type</label>
+        <select id="ptype" onchange="rplot()">
+          <option value="sar">SAR scatter</option>
+          <option value="bar">Potency overview</option>
+          <option value="heat">Correlation matrix</option>
+        </select>
+      </div>
+      <div class="ctrl-grp" id="xc">
+        <label>X axis</label>
+        <select id="xax" onchange="rplot()">
+          <optgroup label="TR-FRET (µM)">
+            <option value="tr2" selected>TR-FRET DF2</option>
+            <option value="tr1">TR-FRET DF1</option>
+            <option value="tr3">TR-FRET DF3</option>
+          </optgroup>
+          <optgroup label="FP (µM)">
+            <option value="fp2">FP DF2</option>
+            <option value="fp1">FP DF1</option>
+            <option value="fp3">FP DF3</option>
+          </optgroup>
+          <optgroup label="Cytotoxicity (µM)">
+            <option value="thp">THP-1</option>
+            <option value="mol">MOLM-13</option>
+          </optgroup>
+          <optgroup label="Properties">
+            <option value="mw">MW (Da)</option>
+            <option value="logp">LogP</option>
+            <option value="tpsa">TPSA (Å²)</option>
+            <option value="le">LE</option>
+            <option value="lle">LLE</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="ctrl-grp" id="yc">
+        <label>Y axis</label>
+        <select id="yax" onchange="rplot()">
+          <optgroup label="TR-FRET (µM)">
+            <option value="tr2">TR-FRET DF2</option>
+            <option value="tr1">TR-FRET DF1</option>
+            <option value="tr3">TR-FRET DF3</option>
+          </optgroup>
+          <optgroup label="FP (µM)">
+            <option value="fp2">FP DF2</option>
+            <option value="fp1">FP DF1</option>
+            <option value="fp3">FP DF3</option>
+          </optgroup>
+          <optgroup label="Cytotoxicity (µM)">
+            <option value="thp" selected>THP-1</option>
+            <option value="mol">MOLM-13</option>
+          </optgroup>
+          <optgroup label="Properties">
+            <option value="mw">MW (Da)</option>
+            <option value="logp">LogP</option>
+            <option value="tpsa">TPSA (Å²)</option>
+            <option value="le">LE</option>
+            <option value="lle">LLE</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="ctrl-grp" id="log-ctrl" style="align-self:flex-end">
+        <label>Options</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:400;color:var(--text);cursor:pointer"><input type="checkbox" id="show-reg" onchange="toggleRegression()" style="width:auto"> Regression</label>
+      </div>
+      <div style="align-self:flex-end;display:flex;gap:6px">
+        <button onclick="rplot()" style="">Refresh</button>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div id="pleg" style="display:none"></div>
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:10px">
+        <button id="zoom-fit-btn" onclick="fitToIncluded()" style="display:none;font-size:12px;padding:6px 14px;background:#1D9E75;color:#fff;border-color:#1D9E75">Fit to included</button>
+        <button id="zoom-reset-btn" onclick="resetZoom()" style="display:none;font-size:12px;padding:6px 14px">Reset zoom</button>
+      </div>
+      <div id="log-bar" style="display:none;margin-bottom:6px;display:flex;gap:14px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);cursor:pointer"><input type="checkbox" id="log-x" onchange="rplot()" style="width:auto"> Log X</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);cursor:pointer"><input type="checkbox" id="log-y" onchange="rplot()" style="width:auto"> Log Y</label>
+      </div>
+      <div style="position:relative;width:100%;height:580px">
+        <canvas id="pchart"></canvas>
+        <svg id="crosshair-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:none">
+          <line id="ch-vline" stroke="rgba(80,80,80,0.45)" stroke-width="1" stroke-dasharray="4,3"/>
+          <line id="ch-hline" stroke="rgba(80,80,80,0.45)" stroke-width="1" stroke-dasharray="4,3"/>
+          <rect id="ch-xbox" rx="3" fill="#1a1a18" opacity="0.75"/>
+          <text id="ch-xval" fill="#fff" font-family="Inter,sans-serif" font-size="11" text-anchor="middle" dominant-baseline="middle"/>
+          <rect id="ch-ybox" rx="3" fill="#1a1a18" opacity="0.75"/>
+          <text id="ch-yval" fill="#fff" font-family="Inter,sans-serif" font-size="11" text-anchor="end" dominant-baseline="middle"/>
+        </svg>
+      </div>
+      <div id="zoom-controls" style="display:none;margin-top:6px">
+        <span style="font-size:11px;color:var(--muted)">Scroll to zoom · drag plot to pan · drag X axis ↔ or Y axis ↕ to zoom that axis</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOSE–RESPONSE PAGE -->
+  <div id="page-dr" class="page">
+    <div class="page-hdr">
+      <h1>Dose–response fitting</h1>
+      <p>Fit 4-parameter logistic (4PL) curves. Enter concentrations in nM, response in % inhibition.</p>
+    </div>
+    <div class="dr-layout">
+      <div class="card dr-inputs">
+        <div class="card-title">Input data</div>
+        <div class="fld"><label>Curve label</label><input id="dr-lbl" type="text" placeholder="e.g. CPD-001 TR-FRET DF2"></div>
+        <div class="fld"><label>Concentrations (nM) — comma separated</label><textarea id="dr-conc" placeholder="1, 3, 10, 30, 100, 300, 1000"></textarea></div>
+        <div class="fld"><label>Response (%) — comma separated</label><textarea id="dr-resp" placeholder="2, 5, 15, 42, 72, 88, 95"></textarea></div>
+        <div class="btn-row" style="margin-top:.5rem">
+          <button class="btn-primary" onclick="fitDR()">Fit curve</button>
+          <button onclick="clearDR()">Clear</button>
+        </div>
+        <div id="dr-result" class="dr-result" style="display:none"></div>
+        <div class="curves-list" id="curves-list"></div>
+      </div>
+      <div class="card" style="padding:1.5rem">
+        <div class="card-title">Latest fit</div>
+        <div class="chart-wrap" style="height:260px"><canvas id="drchart"></canvas></div>
+        <div style="margin-top:1.5rem;border-top:0.5px solid var(--border);padding-top:1.25rem">
+          <div class="card-title">All curves overlay</div>
+          <div class="chart-wrap" style="height:260px"><canvas id="allchart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELECTIVITY PAGE -->
+  <div id="page-sel" class="page">
+    <div class="page-hdr">
+      <h1>Selectivity</h1>
+      <p>How selective is each compound for the reference target over the off-target? Higher ratio = more selective.</p>
+    </div>
+    <div style="display:flex;gap:16px;align-items:flex-end;margin-bottom:1.5rem;flex-wrap:wrap">
+      <div class="ctrl-grp">
+        <label>Reference affinity</label>
+        <select id="sel-num" onchange="rsel()" style="font-size:13px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface);color:var(--text)">
+          <optgroup label="TR-FRET">
+            <option value="tr2" selected>YTHDF2</option>
+            <option value="tr1">YTHDF1</option>
+            <option value="tr3">YTHDF3</option>
+            <option value="dc1">DC1</option>
+          </optgroup>
+          <optgroup label="FP">
+            <option value="fp2">YTHDF2 (FP)</option>
+            <option value="fp1">YTHDF1 (FP)</option>
+            <option value="fp3">YTHDF3 (FP)</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="ctrl-grp">
+        <label>Selectivity against (off-target)</label>
+        <select id="sel-den" onchange="rsel()" style="font-size:13px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface);color:var(--text)">
+          <optgroup label="TR-FRET">
+            <option value="tr2">YTHDF2</option>
+            <option value="tr1">YTHDF1</option>
+            <option value="tr3">YTHDF3</option>
+            <option value="dc1" selected>DC1</option>
+          </optgroup>
+          <optgroup label="FP">
+            <option value="fp2">YTHDF2 (FP)</option>
+            <option value="fp1">YTHDF1 (FP)</option>
+            <option value="fp3">YTHDF3 (FP)</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+    <div id="sel-empty" class="empty"><strong>No compounds yet</strong>Add compounds with data for both selected targets to see selectivity ratios.</div>
+    <div id="sel-cards" style="display:none"></div>
+  </div>
+
+  <!-- IMPORT PAGE -->
+  <div id="page-import" class="page">
+    <div class="page-hdr">
+      <h1>Import CSV</h1>
+      <p>Paste or upload a CSV file. Columns are matched by header name (case-insensitive).</p>
+    </div>
+    <div class="card">
+      <div class="import-hint">
+        Recognised headers: <code>id</code> <code>tr2</code> <code>tr1</code> <code>tr3</code> <code>fp2</code> <code>fp1</code> <code>fp3</code> <code>thp</code> <code>mol</code> <code>mw</code> <code>logp</code> <code>tpsa</code> <code>series</code> <code>notes</code><br>
+        All potency values in <strong>nM</strong>. Unknown columns are ignored. Cell shift is auto-calculated.
+      </div>
+      <div class="fld" style="margin-bottom:1rem">
+        <label>Paste CSV text</label>
+        <textarea id="csv-input" style="min-height:160px;font-size:12px" placeholder="id,tr2,tr1,tr3,fp2,fp1,fp3,thp,mol,mw,logp,tpsa,series&#10;CPD-A01,8.2,44,28,19,88,52,430,380,428,2.3,86,Pyrimidine"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:1rem">
+        <label style="font-size:13px;color:var(--muted)">or upload file:</label>
+        <input type="file" id="csv-file" accept=".csv,.txt" style="font-size:13px;border:none;background:none;padding:0" onchange="handleFile(event)">
+      </div>
+      <div class="btn-row" style="margin-top:0">
+        <button class="btn-primary" onclick="importCSV()">Import</button>
+        <button onclick="document.getElementById('csv-input').value=''">Clear</button>
+      </div>
+      <div id="import-msg" style="margin-top:12px;font-size:13px"></div>
+    </div>
+  </div>
+
+  <!-- SYNTHESIS PLAN PAGE -->
+  <div id="page-synth" class="page">
+    <div class="page-hdr" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <h1>Design / Synthesis</h1>
+        <p>Track which compounds are planned for synthesis and by whom.</p>
+      </div>
+      <button onclick="addSynthEntry()" style="background:#1D9E75;color:#fff;border:none;border-radius:var(--radius);padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer">+ Add entry</button>
+    </div>
+
+    <!-- Add / Edit form -->
+    <div id="synth-form" style="display:none;margin-bottom:2rem">
+      <div class="card">
+        <div class="card-title">New synthesis entry</div>
+        <div style="display:grid;grid-template-columns:1fr 220px;gap:1.25rem;align-items:start;margin-bottom:1rem">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="fld">
+              <label>Compound ID</label>
+              <input id="sy-id" type="text" placeholder="e.g. CPD-007 or leave blank if unknown">
+              <label style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:var(--muted);cursor:pointer">
+                <input type="checkbox" id="sy-unknown" onchange="document.getElementById('sy-id').disabled=this.checked;if(this.checked)document.getElementById('sy-id').value=''" style="width:auto">
+                Unknown / TBD
+              </label>
+            </div>
+            <div class="fld">
+              <label>SMILES</label>
+              <input id="sy-smiles" type="text" placeholder="Paste SMILES string…" oninput="renderSynthSmiles()">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="fld">
+                <label>Responsible</label>
+                <select id="sy-who" style="font-size:13px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--text)">
+                  <option value="">— select —</option>
+                  <option value="In-house (Anna)">In-house (Anna)</option>
+                  <option value="In-house (Licheng)">In-house (Licheng)</option>
+                  <option value="In-house (Francesco)">In-house (Francesco)</option>
+                  <option value="Bioduro">Bioduro</option>
+                </select>
+              </div>
+              <div class="fld">
+                <label>Status</label>
+                <select id="sy-status" style="font-size:13px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--text)">
+                  <option value="Planned">Planned</option>
+                  <option value="In progress">In progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="On hold">On hold</option>
+                </select>
+              </div>
+            </div>
+            <div class="fld">
+              <label>Notes</label>
+              <input id="sy-note" type="text" placeholder="Optional notes…">
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+            <div id="sy-preview" style="width:200px;height:160px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden">
+              <span style="font-size:11px;color:var(--muted)">Structure preview</span>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button onclick="synthFlip('sy-preview','h')" title="Flip horizontal" style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↔</button>
+              <button onclick="synthFlip('sy-preview','v')" title="Flip vertical"   style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↕</button>
+              <button onclick="synthFlip('sy-preview','r')" title="Rotate 90°"      style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↻</button>
+            </div>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn-primary" onclick="saveSynthEntry()">Save entry</button>
+          <button onclick="cancelSynth()">Cancel</button>
+          <button id="sy-delete-btn" class="btn-danger" style="display:none;margin-left:auto" onclick="deleteSynthEntry()">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard grid -->
+    <div id="synth-empty" class="empty"><strong>No synthesis entries yet</strong>Click "+ Add entry" to plan your first synthesis.</div>
+    <div id="synth-grid" style="display:none"></div>
+  </div>
+
+</main>
+</div>
+
+<script>
+let cpds = [], drCurves = [], plotChart = null, dri = null, alli = null;
+let editingIdx = null, modalIdx = null;
+let ovSortKey = null, ovSortAsc = false;
+let synthPlans = [];
+let synthEditIdx = null;
+
+// ── Synthesis Plan ───────────────────────────────────────────────
+const SYNTH_WHO_COLORS = {
+  'In-house (Anna)':      {bg:'#ddeef9', text:'#1a3a5c'},
+  'In-house (Licheng)':   {bg:'#ddf2e0', text:'#1a5c2a'},
+  'In-house (Francesco)': {bg:'#f0eaf9', text:'#4a2a7c'},
+  'Bioduro':              {bg:'#f9eddd', text:'#5c3a1a'},
+};
+const SYNTH_STATUS_COLORS = {
+  'Planned':     {bg:'#eef5f9', text:'#2a5070', dot:'#6aade4'},
+  'In progress': {bg:'#fff8e1', text:'#7a5500', dot:'#f0b429'},
+  'Completed':   {bg:'#ddf2e0', text:'#1a5c2a', dot:'#2ecc71'},
+  'On hold':     {bg:'#fde8e8', text:'#8b2020', dot:'#e55'},
+};
+
+let synthFormTransform = {scaleX:1, scaleY:1, rotate:0};
+
+function synthFlip(elId, dir) {
+  if (dir==='h') synthFormTransform.scaleX *= -1;
+  else if (dir==='v') synthFormTransform.scaleY *= -1;
+  else if (dir==='r') synthFormTransform.rotate = (synthFormTransform.rotate + 90) % 360;
+  renderSynthSmiles();
+}
+
+function addSynthEntry() {
+  synthEditIdx = null;
+  synthFormTransform = {scaleX:1, scaleY:1, rotate:0};
+  document.getElementById('sy-id').value = '';
+  document.getElementById('sy-id').disabled = false;
+  document.getElementById('sy-unknown').checked = false;
+  document.getElementById('sy-smiles').value = '';
+  document.getElementById('sy-who').value = '';
+  document.getElementById('sy-status').value = 'Planned';
+  document.getElementById('sy-note').value = '';
+  document.getElementById('sy-preview').innerHTML = '<span style="font-size:11px;color:var(--muted)">Structure preview</span>';
+  document.getElementById('sy-delete-btn').style.display = 'none';
+  document.querySelector('#synth-form .card-title').textContent = 'New synthesis entry';
+  document.getElementById('synth-form').style.display = '';
+  document.getElementById('sy-id').focus();
+}
+
+function editSynthEntry(idx) {
+  const s = synthPlans[idx];
+  synthEditIdx = idx;
+  synthFormTransform = s.structTransform ? {...s.structTransform} : {scaleX:1, scaleY:1, rotate:0};
+  const isUnknown = !s.id || s.id === '?';
+  document.getElementById('sy-id').value = isUnknown ? '' : s.id;
+  document.getElementById('sy-id').disabled = isUnknown;
+  document.getElementById('sy-unknown').checked = isUnknown;
+  document.getElementById('sy-smiles').value = s.smiles || '';
+  document.getElementById('sy-who').value = s.who || '';
+  document.getElementById('sy-status').value = s.status || 'Planned';
+  document.getElementById('sy-note').value = s.note || '';
+  document.querySelector('#synth-form .card-title').textContent = 'Edit entry';
+  document.getElementById('sy-delete-btn').style.display = '';
+  document.getElementById('synth-form').style.display = '';
+  renderSynthSmiles();
+  document.getElementById('synth-form').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function cancelSynth() {
+  document.getElementById('synth-form').style.display = 'none';
+  synthEditIdx = null;
+}
+
+function deleteSynthEntry() {
+  if (synthEditIdx === null) return;
+  if (!confirm('Delete this synthesis entry?')) return;
+  synthPlans.splice(synthEditIdx, 1);
+  synthEditIdx = null;
+  cancelSynth();
+  saveData();
+  renderSynthGrid();
+}
+
+function saveSynthEntry() {
+  const isUnknown = document.getElementById('sy-unknown').checked;
+  const id = isUnknown ? '?' : document.getElementById('sy-id').value.trim();
+  const entry = {
+    id: id || '?',
+    unknown: isUnknown,
+    smiles: document.getElementById('sy-smiles').value.trim(),
+    who:    document.getElementById('sy-who').value,
+    status: document.getElementById('sy-status').value,
+    note:   document.getElementById('sy-note').value.trim(),
+    structTransform: {...synthFormTransform},
+  };
+  if (synthEditIdx !== null) { synthPlans[synthEditIdx] = entry; }
+  else { synthPlans.push(entry); }
+  cancelSynth();
+  saveData();
+  renderSynthGrid();
+}
+
+function updateSynthField(idx, field, value) {
+  synthPlans[idx][field] = value;
+  saveData();
+  // Re-render just the status/who badges without full redraw
+  renderSynthGrid();
+}
+
+function renderSynthSmiles() {
+  const smiles = document.getElementById('sy-smiles').value.trim();
+  const el = document.getElementById('sy-preview');
+  if (!smiles) { el.innerHTML = '<span style="font-size:11px;color:var(--muted)">Structure preview</span>'; return; }
+  if (window.smilesLibLoaded) drawSmilesToEl(smiles, el, 200, 160, synthFormTransform);
+  else el.innerHTML = '<span style="font-size:11px;color:var(--muted)">Loading…</span>';
+}
+
+function renderSynthGrid() {
+  const empty = document.getElementById('synth-empty');
+  const grid  = document.getElementById('synth-grid');
+  if (!synthPlans.length) { empty.style.display=''; grid.style.display='none'; return; }
+  empty.style.display='none'; grid.style.display='';
+
+  // Group by synthesizer
+  const groups = {};
+  const order = ['In-house (Anna)','In-house (Licheng)','In-house (Francesco)','Bioduro',''];
+  synthPlans.forEach((s,i) => {
+    const key = s.who || '';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({...s, _idx:i});
+  });
+
+  const whoLabel = who => who === '' ? 'Unassigned' : who;
+
+  grid.innerHTML = order.filter(k => groups[k]?.length).map(who => {
+    const col = SYNTH_WHO_COLORS[who] || {bg:'#f1efe8', text:'#555'};
+    const cards = groups[who].map(s => {
+      const sc = SYNTH_STATUS_COLORS[s.status] || SYNTH_STATUS_COLORS['Planned'];
+      const statusOpts = ['Planned','In progress','Completed','On hold'].map(st =>
+        `<option value="${st}" ${s.status===st?'selected':''}>${st}</option>`).join('');
+
+      return `<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <div style="font-weight:600;font-size:15px;letter-spacing:-.01em">${s.unknown || s.id==='?' ? '<span style="color:var(--muted);font-style:italic;font-weight:400;font-size:13px">Unknown / TBD</span>' : s.id}</div>
+          <button onclick="editSynthEntry(${s._idx})" style="font-size:11px;padding:3px 9px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface);cursor:pointer;color:var(--muted);white-space:nowrap">Edit</button>
+        </div>
+        ${s.smiles ? `
+          <div id="sy-struct-${s._idx}" style="width:100%;height:140px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden"></div>
+          <div style="display:flex;gap:4px;justify-content:center">
+            <button onclick="synthCardFlip(${s._idx},'h')" title="Flip horizontal" style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↔</button>
+            <button onclick="synthCardFlip(${s._idx},'v')" title="Flip vertical"   style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↕</button>
+            <button onclick="synthCardFlip(${s._idx},'r')" title="Rotate 90°"      style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↻</button>
+          </div>` : `<div style="height:140px;border:0.5px dashed var(--border);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px">No structure</div>`}
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="width:7px;height:7px;border-radius:50%;background:${sc.dot};flex-shrink:0"></span>
+          <select onchange="updateSynthField(${s._idx},'status',this.value)" style="flex:1;font-size:12px;padding:5px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:${sc.bg};color:${sc.text};font-family:'Inter',sans-serif;cursor:pointer">${statusOpts}</select>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:10px;color:var(--muted);white-space:nowrap">Assign:</span>
+          <select onchange="updateSynthField(${s._idx},'who',this.value)" style="flex:1;font-size:12px;padding:5px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-family:'Inter',sans-serif;cursor:pointer">
+            <option value="" ${!s.who?'selected':''}>— unassigned —</option>
+            <option value="In-house (Anna)" ${s.who==='In-house (Anna)'?'selected':''}>In-house (Anna)</option>
+            <option value="In-house (Licheng)" ${s.who==='In-house (Licheng)'?'selected':''}>In-house (Licheng)</option>
+            <option value="In-house (Francesco)" ${s.who==='In-house (Francesco)'?'selected':''}>In-house (Francesco)</option>
+            <option value="Bioduro" ${s.who==='Bioduro'?'selected':''}>Bioduro</option>
+          </select>
+        </div>
+        ${s.note ? `<div style="font-size:11px;color:var(--muted);border-top:0.5px solid var(--border);padding-top:8px">${s.note}</div>` : ''}
+        ${s.status === 'Completed' ? `<button onclick="synthPromoteToDb(${s._idx})" style="width:100%;margin-top:2px;padding:7px 10px;font-size:12px;font-weight:500;background:#1D9E75;color:#fff;border:none;border-radius:var(--radius);cursor:pointer;letter-spacing:.01em">→ Add to database</button>` : ''}
+      </div>`;
+    }).join('');
+
+    return `<div style="margin-bottom:2rem">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="background:${col.bg};color:${col.text};font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.03em">${whoLabel(who)}</span>
+        <span style="font-size:11px;color:var(--muted)">${groups[who].length} compound${groups[who].length!==1?'s':''}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">${cards}</div>
+    </div>`;
+  }).join('');
+
+  // Draw structures
+  if (window.smilesLibLoaded) {
+    synthPlans.forEach((s,i) => {
+      if (s.smiles) {
+        setTimeout(() => {
+          const el = document.getElementById('sy-struct-'+i);
+          if (el) drawSmilesToEl(s.smiles, el, 220, 140, s.structTransform || {});
+        }, 30);
+      }
+    });
+  }
+}
+
+function synthPromoteToDb(idx) {
+  const s = synthPlans[idx];
+  if (!s) return;
+  const idLabel = (s.unknown || s.id === '?') ? '' : s.id;
+  const msg = idLabel
+    ? `Move "${idLabel}" to the compound database?\n\nThis will open the entry form pre-filled with the compound ID and SMILES. After saving, it will be removed from the synthesis panel.`
+    : `Move this compound to the database?\n\nThis will open the entry form pre-filled with the SMILES. After saving, it will be removed from the synthesis panel.`;
+  if (!confirm(msg)) return;
+
+  // Pre-fill the entry form
+  document.getElementById('f-id').value = idLabel;
+  document.getElementById('f-smiles').value = s.smiles || '';
+  renderSmiles();
+  document.getElementById('btn-add-lbl').textContent = 'Add compound';
+  document.getElementById('btn-delete').style.display = 'none';
+  editingIdx = null;
+
+  // Store the synth index so we can remove it after saving
+  window._pendingSynthRemoveIdx = idx;
+
+  go('entry');
+}
+
+function synthCardFlip(idx, dir) {
+  if (!synthPlans[idx]) return;
+  if (!synthPlans[idx].structTransform) synthPlans[idx].structTransform = {scaleX:1, scaleY:1, rotate:0};
+  const t = synthPlans[idx].structTransform;
+  if (dir==='h') t.scaleX *= -1;
+  else if (dir==='v') t.scaleY *= -1;
+  else if (dir==='r') t.rotate = ((t.rotate||0) + 90) % 360;
+  saveData();
+  const el = document.getElementById('sy-struct-'+idx);
+  if (el && synthPlans[idx].smiles && window.smilesLibLoaded) {
+    const svg = el.querySelector('svg');
+    if (svg) applyTransform(svg, t);
+    else drawSmilesToEl(synthPlans[idx].smiles, el, 220, 140, t);
+  }
+}
+// ────────────────────────────────────────────────────────────────
+
+const COLORS = ['#2563a8','#1a7a46','#b84a1a','#7c3a9e','#7a6010','#1a6b7a','#8b2020','#3a5c2a'];
+
+function go(t) {
+  ['overview','plots','sel','synth'].forEach((s,i) => {
+    const btn = document.querySelectorAll('.nav-item')[i];
+    if (btn) btn.classList.toggle('on', s===t);
+  });
+  ['overview','entry','plots','sel','dr','import','synth'].forEach(s => {
+    const pg = document.getElementById('page-'+s);
+    if (pg) pg.classList.toggle('on', s===t);
+  });
+  if (t==='plots') rplot();
+  if (t==='sel') rsel();
+  if (t==='synth') renderSynthGrid();
+}
+
+function fv(id) { const v=parseFloat(document.getElementById(id).value); return isNaN(v)?null:v; }
+function fs(id) { return document.getElementById(id).value.trim(); }
+
+function addCpd() {
+  const id = fs('f-id') || 'CPD-'+String(cpds.length+1).padStart(3,'0');
+  const smiles = fs('f-smiles');
+
+  const tr2=fv('f-tr2'), tr1=fv('f-tr1'), tr3=fv('f-tr3'), dc1=fv('f-dc1');
+  const fp2=fv('f-fp2'), fp1=fv('f-fp1'), fp3=fv('f-fp3'), fdc1=fv('f-fdc1');
+  const thp=fv('f-thp'), mol=fv('f-mol');
+
+  // Validate: need at least one TR-FRET or FP value
+  if (!tr2 && !tr1 && !tr3 && !dc1 && !fp2 && !fp1 && !fp3 && !fdc1) {
+    const err = document.getElementById('entry-error');
+    err.textContent = 'Please enter at least one TR-FRET or FP value.';
+    err.style.display = 'block';
+    return;
+  }
+  document.getElementById('entry-error').style.display = 'none';
+
+  const shift = (tr2&&thp) ? parseFloat((thp/tr2).toFixed(1)) : null;
+
+  // Build measurements array from what was entered
+  const trDate = document.getElementById('f-tr-date').value.trim();
+  const fpDate = document.getElementById('f-fp-date').value.trim();
+  const cbDate = document.getElementById('f-cb-date').value.trim();
+  const today = new Date().toISOString().split('T')[0];
+
+  const measurements = [];
+  if (tr2||tr1||tr3||dc1) measurements.push({type:'tr', date:trDate||today, tr2, tr1, tr3, dc1});
+  if (fp2||fp1||fp3||fdc1) measurements.push({type:'fp', date:fpDate||today, fp2, fp1, fp3, fdc1});
+  if (thp||mol)            measurements.push({type:'cb', date:cbDate||today, thp, mol});
+
+  // If editing, merge new measurement in with existing ones
+  if (editingIdx !== null) {
+    const existing = cpds[editingIdx].measurements || [];
+    const merged = [...existing, ...measurements];
+    // Recompute averages
+    const avg = (type, key) => {
+      const vals = merged.filter(m=>m.type===type).map(m=>m[key]).filter(v=>v!==null&&v!==undefined&&!isNaN(v));
+      return vals.length ? parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(3)) : null;
+    };
+    cpds[editingIdx] = {
+      ...cpds[editingIdx],
+      tr2:avg('tr','tr2'), tr1:avg('tr','tr1'), tr3:avg('tr','tr3'), dc1:avg('tr','dc1'),
+      fp2:avg('fp','fp2'), fp1:avg('fp','fp1'), fp3:avg('fp','fp3'), fdc1:avg('fp','fdc1'),
+      thp:avg('cb','thp'), mol:avg('cb','mol'),
+      mw:fv('f-mw')??cpds[editingIdx].mw, logp:fv('f-logp')??cpds[editingIdx].logp,
+      tpsa:fv('f-tpsa')??cpds[editingIdx].tpsa, note:fs('f-note')||cpds[editingIdx].note,
+      smiles:smiles||cpds[editingIdx].smiles, measurements: merged
+    };
+    cpds[editingIdx].shift = (cpds[editingIdx].tr2&&cpds[editingIdx].thp) ? parseFloat((cpds[editingIdx].thp/cpds[editingIdx].tr2).toFixed(1)) : null;
+  } else {
+    cpds.push({
+      id, tr2, tr1, tr3, dc1, fp2, fp1, fp3, fdc1, thp, mol, shift,
+      mw:fv('f-mw'), logp:fv('f-logp'), tpsa:fv('f-tpsa'),
+      note:fs('f-note'), smiles, measurements
+    });
+  }
+  resetForm();
+  upd();
+  // If promoted from synthesis panel, remove that entry now
+  if (window._pendingSynthRemoveIdx !== undefined && window._pendingSynthRemoveIdx !== null) {
+    synthPlans.splice(window._pendingSynthRemoveIdx, 1);
+    window._pendingSynthRemoveIdx = null;
+    saveData();
+  }
+  go('overview');
+}
+let measData = { tr:[], fp:[], cb:[] };
+
+const TR_FIELDS = [
+  {key:'tr2', label:'YTHDF2 (µM)', step:'0.1'},
+  {key:'tr1', label:'YTHDF1 (µM)', step:'0.1'},
+  {key:'tr3', label:'YTHDF3 (µM)', step:'0.1'},
+  {key:'dc1', label:'DC1 (µM)', step:'0.1'},
+];
+const FP_FIELDS = [
+  {key:'fp2', label:'YTHDF2 (µM)', step:'0.1'},
+  {key:'fp1', label:'YTHDF1 (µM)', step:'0.1'},
+  {key:'fp3', label:'YTHDF3 (µM)', step:'0.1'},
+  {key:'fdc1', label:'YTHDC1 (µM)', step:'0.1'},
+];
+const CB_FIELDS = [
+  {key:'thp', label:'THP-1 (µM)', step:'0.001'},
+  {key:'mol', label:'MOLM-13 (µM)', step:'0.001'},
+];
+const MEAS_FIELDS = {tr: TR_FIELDS, fp: FP_FIELDS, cb: CB_FIELDS};
+
+function addMeasRow(type, vals={}) {
+  const today = new Date().toISOString().split('T')[0];
+  const row = { date: vals.date||today };
+  MEAS_FIELDS[type].forEach(f => row[f.key] = vals[f.key]||'');
+  measData[type].push(row);
+  renderMeasBlock(type);
+}
+
+function removeMeasRow(type, idx) {
+  measData[type].splice(idx, 1);
+  renderMeasBlock(type);
+}
+
+function renderMeasBlock(type) {
+  const block = document.getElementById('meas-'+type);
+  if (!block) return;
+  const fields = MEAS_FIELDS[type];
+  const colTemplate = `80px repeat(${fields.length}, 1fr) 28px`;
+  block.innerHTML = measData[type].map((row, i) => `
+    <div class="meas-row" style="grid-template-columns:${colTemplate}">
+      <input type="date" value="${row.date}" onchange="measData['${type}'][${i}].date=this.value" style="width:100%">
+      ${fields.map(f => `<input type="number" step="${f.step}" placeholder="${f.label}" value="${row[f.key]}"
+        onchange="measData['${type}'][${i}]['${f.key}']=this.value?parseFloat(this.value):null"
+        style="width:100%" title="${f.label}">`).join('')}
+      <button onclick="removeMeasRow('${type}',${i})" style="padding:2px 6px;font-size:13px;border:none;background:none;cursor:pointer;color:var(--muted);line-height:1">×</button>
+    </div>`).join('');
+
+  // Show column labels on first row only
+  if (measData[type].length > 0 && !document.getElementById('meas-hdr-'+type)) {
+    const hdr = document.createElement('div');
+    hdr.id = 'meas-hdr-'+type;
+    hdr.style.cssText = `display:grid;grid-template-columns:${colTemplate};gap:8px;padding:0 10px 4px;font-size:10px;color:var(--muted)`;
+    hdr.innerHTML = '<span>Date</span>' + fields.map(f=>`<span>${f.label}</span>`).join('') + '<span></span>';
+    block.prepend(hdr);
+  } else if (measData[type].length === 0) {
+    const hdr = document.getElementById('meas-hdr-'+type);
+    if (hdr) hdr.remove();
+  }
+}
+
+function getMeasAvg(type, key) {
+  const vals = measData[type].map(r => parseFloat(r[key])).filter(v => !isNaN(v) && v > 0);
+  if (!vals.length) return null;
+  return parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2));
+}
+
+function clearMeasData() {
+  measData = { tr:[], fp:[], cb:[] };
+  ['tr','fp','cb'].forEach(t => renderMeasBlock(t));
+}
+
+function loadMeasFromCpd(c) {
+  measData = { tr:[], fp:[], cb:[] };
+  if (c.measurements) {
+    c.measurements.forEach(m => {
+      if (m.type) measData[m.type] && measData[m.type].push(m);
+    });
+  } else {
+    // Legacy: single values — convert to one measurement row
+    const today = new Date().toISOString().split('T')[0];
+    if (c.tr2||c.tr1||c.tr3||c.dc1) measData.tr.push({date:today, tr2:c.tr2||'', tr1:c.tr1||'', tr3:c.tr3||'', dc1:c.dc1||''});
+    if (c.fp2||c.fp1||c.fp3) measData.fp.push({date:today, fp2:c.fp2||'', fp1:c.fp1||'', fp3:c.fp3||''});
+    if (c.thp||c.mol) measData.cb.push({date:today, thp:c.thp||'', mol:c.mol||''});
+  }
+  ['tr','fp','cb'].forEach(t => renderMeasBlock(t));
+}
+
+let smilesDrawer = null;
+let smilesDrawerModal = null;
+
+function kekulize(smiles) {
+  // Convert aromatic SMILES to Kekulé form by alternating single/double bonds
+  // Find aromatic atoms (lowercase) and assign alternating double bonds
+  const aromaticMap = {c:'C', n:'N', o:'O', s:'S', p:'P'};
+  
+  // Parse into tokens
+  const tokens = [];
+  let i = 0;
+  while (i < smiles.length) {
+    const ch = smiles[i];
+    if (ch === '[') {
+      let j = i+1; while (j < smiles.length && smiles[j] !== ']') j++;
+      tokens.push({type:'atom', val:smiles.slice(i,j+1), aromatic:false}); i = j+1;
+    } else if (aromaticMap[ch]) {
+      tokens.push({type:'atom', val:aromaticMap[ch], aromatic:true}); i++;
+    } else if ('BCNOPSF'.includes(ch) || (ch==='C'&&smiles[i+1]==='l') || (ch==='B'&&smiles[i+1]==='r')) {
+      if ((ch==='C'&&smiles[i+1]==='l')||(ch==='B'&&smiles[i+1]==='r')) { tokens.push({type:'atom',val:smiles.slice(i,i+2),aromatic:false}); i+=2; }
+      else { tokens.push({type:'atom',val:ch,aromatic:false}); i++; }
+    } else if ('0123456789'.includes(ch)) {
+      tokens.push({type:'ring', val:ch, num:parseInt(ch)}); i++;
+    } else if (ch === '%') {
+      tokens.push({type:'ring', val:smiles.slice(i,i+3), num:parseInt(smiles.slice(i+1,i+3))}); i+=3;
+    } else {
+      tokens.push({type:'other', val:ch}); i++;
+    }
+  }
+
+  // Find aromatic ring systems and assign alternating bonds
+  // Track ring openings to find aromatic rings
+  const ringOpen = {};
+  let result = '';
+  let prevAromatic = false;
+  let doubleBond = false;
+  const branchStack = [false]; // stack of prevAromatic at branch points
+
+  for (let t = 0; t < tokens.length; t++) {
+    const tok = tokens[t];
+    if (tok.type === 'atom') {
+      if (tok.aromatic && prevAromatic) {
+        // Between two aromatic atoms — alternate single/double
+        if (doubleBond) { result += tok.val; doubleBond = false; }
+        else { result += '=' + tok.val; doubleBond = true; }
+      } else {
+        result += tok.val;
+        doubleBond = tok.aromatic ? false : false;
+      }
+      prevAromatic = tok.aromatic;
+    } else if (tok.type === 'ring') {
+      result += tok.val;
+    } else if (tok.type === 'other') {
+      const v = tok.val;
+      if (v === '(') { branchStack.push(prevAromatic); prevAromatic = false; doubleBond = false; result += v; }
+      else if (v === ')') { prevAromatic = branchStack.pop() || false; doubleBond = false; result += v; }
+      else if (v === ':') { /* skip aromatic bond, handle via atom alternation */ }
+      else { if (v !== ':') { prevAromatic = false; doubleBond = false; } result += v === ':' ? '' : v; }
+    }
+  }
+  return result;
+}
+
+function drawSmilesToEl(smiles, container, w, h, transform) {
+  if (!smiles) { container.innerHTML = '<span style="font-size:11px;color:var(--muted)">Structure preview</span>'; return; }
+  if (!window.SmilesDrawer) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--muted)">Loading…</span>';
+    setTimeout(function() { drawSmilesToEl(smiles, container, w, h, transform); }, 500);
+    return;
+  }
+  const svgId = 'sd-' + Math.random().toString(36).slice(2);
+  container.innerHTML = '<svg id="' + svgId + '" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:100%"></svg>';
+  setTimeout(function() {
+    try {
+      const svgEl = document.getElementById(svgId);
+      const drawer = new SmilesDrawer.SvgDrawer({
+        width: w, height: h,
+        bondThickness: 1.2, bondLength: 28, shortBondLength: 0.85,
+        bondSpacing: 5, fontSizeLarge: 8, fontSizeSmall: 6,
+        atomVisualization: 'default', isomeric: true, debug: false,
+        terminalCarbons: false, explicitHydrogens: false,
+        compactDrawing: false, kekuleStructures: true
+      });
+      SmilesDrawer.parse(smiles, function(tree) {
+        drawer.draw(tree, svgEl, 'light', false);
+        if (transform && (transform.scaleX !== 1 || transform.scaleY !== 1 || transform.rotate !== 0)) {
+          applyTransform(svgEl, transform);
+        }
+      }, function() {
+        container.innerHTML = '<span style="font-size:11px;color:#A32D2D">Invalid SMILES</span>';
+      });
+    } catch(e) {
+      container.innerHTML = '<span style="font-size:11px;color:#A32D2D">Invalid SMILES</span>';
+    }
+  }, 30);
+}
+
+// Track transforms per container
+const structTransforms = {};
+
+function applyTransform(svg, t) {
+  svg.style.transform = `rotate(${t.rotate}deg) scale(${t.scaleX}, ${t.scaleY})`;
+  svg.style.transformOrigin = 'center center';
+  svg.style.transition = 'transform 0.2s ease';
+}
+
+function flipStruct(containerId, dir) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const svg = container.querySelector('svg');
+  if (!svg) return;
+  if (!structTransforms[containerId]) structTransforms[containerId] = {scaleX:1, scaleY:1, rotate:0};
+  const t = structTransforms[containerId];
+  if (dir === 'h') t.scaleX *= -1;
+  else if (dir === 'v') t.scaleY *= -1;
+  else if (dir === 'r') t.rotate = (t.rotate + 90) % 360;
+  applyTransform(svg, t);
+
+  // Save to compound if this is the modal
+  if (containerId === 'modal-struct' && modalIdx !== null) {
+    cpds[modalIdx].structTransform = {...t};
+    saveData();
+  }
+}
+
+function renderSmiles() {
+  const el = document.getElementById('f-smiles');
+  const preview = document.getElementById('smiles-preview');
+  if (!preview) return;
+  const smiles = el ? el.value.trim() : '';
+  if (!smiles) {
+    preview.innerHTML = '<span style="font-size:11px;color:var(--muted)">Structure preview</span>';
+    const btns = document.getElementById('smiles-flip-btns');
+    if (btns) btns.style.display = 'none';
+    return;
+  }
+  delete structTransforms['smiles-preview'];
+  // Restore saved transform if editing
+  if (editingIdx !== null && cpds[editingIdx] && cpds[editingIdx].structTransform) {
+    structTransforms['smiles-preview'] = {...cpds[editingIdx].structTransform};
+  }
+  drawSmilesToEl(smiles, preview, 190, 150);
+  const btns = document.getElementById('smiles-flip-btns');
+  if (btns) btns.style.display = 'flex';
+}
+
+function smilesForModal(smiles, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container || !smiles) return;
+  delete structTransforms[containerId];
+  // Restore saved transform from compound
+  if (containerId === 'modal-struct' && modalIdx !== null && cpds[modalIdx] && cpds[modalIdx].structTransform) {
+    structTransforms[containerId] = {...cpds[modalIdx].structTransform};
+  }
+  drawSmilesToEl(smiles, container, 220, 170, structTransforms[containerId]);
+}
+
+
+
+function openModal(i) {
+  modalIdx = i;
+  const c = cpds[i];
+  document.getElementById('modal-id').textContent = c.id;
+  const fmtN = (v) => v !== null ? (v < 0.001 ? v.toFixed(4) : v < 0.1 ? v.toFixed(3) : v.toFixed(2)) : '—';
+
+  function measHistory(type, fields) {
+    const meas = (c.measurements||[]).filter(m=>m.type===type);
+    if (meas.length <= 1) return '';
+    const uid = 'mh-'+type+'-'+i;
+    const rows = meas.map(m => `<div class="meas-history-row" style="display:grid;grid-template-columns:90px ${fields.map(()=>'1fr').join(' ')};gap:8px;text-align:center">
+      <span style="text-align:left;color:var(--muted)">${m.date||'—'}</span>
+      ${fields.map(f => `<span>${m[f.key]!==null&&m[f.key]!==''?m[f.key]:'—'}</span>`).join('')}
+    </div>`).join('');
+    const hdrs = `<div style="display:grid;grid-template-columns:90px ${fields.map(()=>'1fr').join(' ')};gap:8px;text-align:center;font-size:10px;color:var(--muted);font-weight:500;margin-bottom:4px">
+      <span style="text-align:left">Date</span>${fields.map(f=>`<span>${f.label.replace(' (µM)','').replace(' (nM)','')}</span>`).join('')}
+    </div>`;
+    return `<button class="meas-toggle" onclick="document.getElementById('${uid}').style.display=document.getElementById('${uid}').style.display==='none'?'block':'none'">
+      ▾ ${meas.length} measurements
+    </button>
+    <div id="${uid}" style="display:none" class="meas-history">${hdrs}${rows}</div>`;
+  }
+
+  document.getElementById('modal-body').innerHTML = `
+    ${c.smiles ? `<div style="margin-bottom:1rem">
+      <div id="modal-struct" style="border:0.5px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface2);display:flex;align-items:center;justify-content:center;height:180px"></div>
+      <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:5px">
+        <button onclick="flipStruct('modal-struct','h')" title="Flip horizontal" style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↔</button>
+        <button onclick="flipStruct('modal-struct','v')" title="Flip vertical" style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↕</button>
+        <button onclick="flipStruct('modal-struct','r')" title="Rotate 90°" style="font-size:11px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--muted)">↻</button>
+      </div>
+    </div>` : ''}
+    <div class="modal-section">
+      <div class="modal-section-title" style="color:#1a3a5c">TR-FRET — IC50 (µM, avg)</div>
+      <div class="modal-grid">
+        <div class="modal-cell" style="text-align:center"><div class="modal-cell-label">YTHDF2</div><div class="modal-cell-val" style="color:#1a3a5c">${fmtN(c.tr2)}</div></div>
+        <div class="modal-cell" style="text-align:center"><div class="modal-cell-label">YTHDF1</div><div class="modal-cell-val" style="color:#1a3a5c">${fmtN(c.tr1)}</div></div>
+        <div class="modal-cell" style="text-align:center"><div class="modal-cell-label">YTHDF3</div><div class="modal-cell-val" style="color:#1a3a5c">${fmtN(c.tr3)}</div></div>
+        <div class="modal-cell" style="text-align:center"><div class="modal-cell-label">DC1</div><div class="modal-cell-val" style="color:#1a3a5c">${fmtN(c.dc1)}</div></div>
+      </div>
+      ${measHistory('tr', TR_FIELDS)}
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title" style="color:#2a5c1a">FP — IC50 (µM, avg)</div>
+      <div class="modal-grid">
+        <div class="modal-cell" style="text-align:center"><div class="modal-cell-label">YTHDF2</div><div class="modal-cell-val" style="color:#2a5c1a">${fmtN(c.fp2)}</div></div>
+        <div class="modal-cell" style="text-align:center"><div class="modal-cell-label">YTHDF1</div><div class="modal-cell-val" style="color:#2a5c1a">${fmtN(c.fp1)}</div></div>
+        <div class="modal-cell" style="text-align:center"><div class="modal-cell-label">YTHDF3</div><div class="modal-cell-val" style="color:#2a5c1a">${fmtN(c.fp3)}</div></div>
+        <div class="modal-cell" style="text-align:center"><div class="modal-cell-label">YTHDC1</div><div class="modal-cell-val" style="color:#2a5c1a">${fmtN(c.fdc1)}</div></div>
+      </div>
+      ${measHistory('fp', FP_FIELDS)}
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title" style="color:#5c3a1a">Cytotoxicity — GI50 (µM, avg)</div>
+      <div class="modal-grid">
+        <div class="modal-cell" style="text-align:center"><div class="modal-cell-label">THP-1</div><div class="modal-cell-val" style="color:#5c3a1a">${c.thp!==null?c.thp.toFixed(3):'—'}</div></div>
+        <div class="modal-cell" style="text-align:center"><div class="modal-cell-label">MOLM-13</div><div class="modal-cell-val" style="color:#5c3a1a">${c.mol!==null?c.mol.toFixed(3):'—'}</div></div>
+      </div>
+      ${measHistory('cb', CB_FIELDS)}
+    </div>
+    ${(c.mw||c.logp||c.tpsa||c.note) ? `<div class="modal-section">
+      <div class="modal-section-title">Properties</div>
+      <div class="modal-grid">
+        ${c.mw?`<div class="modal-cell"><div class="modal-cell-label">MW</div><div class="modal-cell-val">${c.mw} Da</div></div>`:''}
+        ${c.logp!==null?`<div class="modal-cell"><div class="modal-cell-label">LogP</div><div class="modal-cell-val">${c.logp}</div></div>`:''}
+        ${c.tpsa?`<div class="modal-cell"><div class="modal-cell-label">TPSA</div><div class="modal-cell-val">${c.tpsa} Å²</div></div>`:''}
+        ${c.note?`<div class="modal-cell" style="grid-column:1/-1"><div class="modal-cell-label">Notes</div><div class="modal-cell-val" style="font-size:13px;font-weight:400">${c.note}</div></div>`:''}
+      </div>
+    </div>` : ''}`;
+  const modal = document.getElementById('cpd-modal');
+  modal.style.display = 'flex';
+  if (c.smiles) setTimeout(() => smilesForModal(c.smiles, 'modal-struct'), 50);
+}
+
+function closeModal() {
+  document.getElementById('cpd-modal').style.display = 'none';
+  modalIdx = null;
+}
+
+function addMeasFromModal() {
+  const i = modalIdx;
+  if (i === null) return;
+  const c = cpds[i];
+  document.getElementById('meas-modal-id').textContent = c.id;
+  document.getElementById('mm-date').value = new Date().toISOString().split('T')[0];
+  ['tr2','tr1','tr3','dc1','fp2','fp1','fp3','fdc1','thp','mol'].forEach(k => {
+    const el = document.getElementById('mm-'+k); if (el) el.value = '';
+  });
+  document.getElementById('meas-modal').style.display = 'flex';
+}
+
+function closeMeasModal() {
+  document.getElementById('meas-modal').style.display = 'none';
+}
+
+function saveMeasurement() {
+  const i = modalIdx;
+  if (i === null) return;
+  const c = cpds[i];
+  const fv = id => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
+  const date = document.getElementById('mm-date').value;
+
+  if (!c.measurements) c.measurements = [];
+
+  const trVals = {tr2:fv('mm-tr2'), tr1:fv('mm-tr1'), tr3:fv('mm-tr3'), dc1:fv('mm-dc1')};
+  const fpVals = {fp2:fv('mm-fp2'), fp1:fv('mm-fp1'), fp3:fv('mm-fp3'), fdc1:fv('mm-fdc1')};
+  const cbVals = {thp:fv('mm-thp'), mol:fv('mm-mol')};
+
+  if (Object.values(trVals).some(v=>v!==null)) c.measurements.push({...trVals, date, type:'tr'});
+  if (Object.values(fpVals).some(v=>v!==null)) c.measurements.push({...fpVals, date, type:'fp'});
+  if (Object.values(cbVals).some(v=>v!==null)) c.measurements.push({...cbVals, date, type:'cb'});
+
+  // Recompute averages
+  function avg(type, key) {
+    const vals = c.measurements.filter(m=>m.type===type).map(m=>m[key]).filter(v=>v!==null);
+    return vals.length ? parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2)) : null;
+  }
+  c.tr2=avg('tr','tr2'); c.tr1=avg('tr','tr1'); c.tr3=avg('tr','tr3'); c.dc1=avg('tr','dc1');
+  c.fp2=avg('fp','fp2'); c.fp1=avg('fp','fp1'); c.fp3=avg('fp','fp3'); c.fdc1=avg('fp','fdc1');
+  c.thp=avg('cb','thp'); c.mol=avg('cb','mol');
+  c.shift = (c.tr2&&c.thp) ? parseFloat((c.thp/c.tr2).toFixed(1)) : null;
+
+  upd();
+  saveData();
+  closeMeasModal();
+  openModal(i);
+}
+
+function editFromModal() {
+  const i = modalIdx;
+  closeModal();
+  editCpd(i);
+}
+
+
+
+function editCpd(i) {
+  const c = cpds[i];
+  editingIdx = i;
+  document.getElementById('f-id').value = c.id;
+  document.getElementById('f-smiles').value = c.smiles ?? '';
+  document.getElementById('f-tr2').value = c.tr2 ?? '';
+  document.getElementById('f-tr1').value = c.tr1 ?? '';
+  document.getElementById('f-tr3').value = c.tr3 ?? '';
+  document.getElementById('f-dc1').value = c.dc1 ?? '';
+  document.getElementById('f-fp2').value = c.fp2 ?? '';
+  document.getElementById('f-fp1').value = c.fp1 ?? '';
+  document.getElementById('f-fp3').value = c.fp3 ?? '';
+  document.getElementById('f-fdc1').value = c.fdc1 ?? '';
+  document.getElementById('f-thp').value = c.thp ?? '';
+  document.getElementById('f-mol').value = c.mol ?? '';
+  document.getElementById('f-mw').value = c.mw ?? '';
+  document.getElementById('f-logp').value = c.logp ?? '';
+  document.getElementById('f-tpsa').value = c.tpsa ?? '';
+  document.getElementById('f-note').value = c.note ?? '';
+  renderSmiles();
+  document.getElementById('btn-add-lbl').textContent = 'Save changes';
+  document.getElementById('btn-delete').style.display = '';
+  go('entry');
+}
+
+function deleteCurrent() {
+  if (editingIdx === null) return;
+  if (!confirm('Delete ' + cpds[editingIdx].id + '? This cannot be undone.')) return;
+  cpds.splice(editingIdx, 1);
+  editingIdx = null;
+  resetForm();
+  upd();
+  go('overview');
+}
+
+function resetForm() {
+  ['f-id','f-smiles','f-tr2','f-tr1','f-tr3','f-dc1','f-fp2','f-fp1','f-fp3','f-fdc1',
+   'f-thp','f-mol','f-mw','f-logp','f-tpsa','f-note','f-tr-date','f-fp-date','f-cb-date'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const preview = document.getElementById('smiles-preview');
+  if (preview) preview.innerHTML = '<span style="font-size:11px;color:var(--muted)">Structure preview</span>';
+  document.getElementById('btn-add-lbl').textContent = 'Add compound';
+  document.getElementById('btn-delete').style.display = 'none';
+  const err = document.getElementById('entry-error'); if (err) err.style.display = 'none';
+  editingIdx = null;
+  window._pendingSynthRemoveIdx = null;
+}
+
+function rsel() {
+  const empty = document.getElementById('sel-empty');
+  const cards = document.getElementById('sel-cards');
+
+  const numKey = document.getElementById('sel-num') ? document.getElementById('sel-num').value : 'tr2';
+  const denKey = document.getElementById('sel-den') ? document.getElementById('sel-den').value : 'dc1';
+
+  const keyLabel = {tr2:'YTHDF2', tr1:'YTHDF1', tr3:'YTHDF3', dc1:'DC1',
+                    fp2:'YTHDF2 FP', fp1:'YTHDF1 FP', fp3:'YTHDF3 FP', fdc1:'YTHDC1 FP'};
+  const keyMethod = {tr2:'TR-FRET', tr1:'TR-FRET', tr3:'TR-FRET', dc1:'TR-FRET',
+                     fp2:'FP', fp1:'FP', fp3:'FP'};
+
+  const relevant = cpds.filter(c => c[numKey] && c[denKey]);
+  if (!relevant.length) { empty.style.display=''; cards.style.display='none'; return; }
+  empty.style.display='none'; cards.style.display='';
+
+  const sorted = [...relevant].sort((a, b) => (b[denKey]/b[numKey]) - (a[denKey]/a[numKey]));
+  const maxRatio = Math.max(...sorted.map(c => c[denKey]/c[numKey]));
+
+  function ratioColor(r) { return r >= 100 ? '#0F6E56' : r >= 20 ? '#185FA5' : '#A32D2D'; }
+  function ratioBg(r)    { return r >= 100 ? '#E1F5EE' : r >= 20 ? '#E6F1FB' : '#FCEBEB'; }
+
+  cards.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem">` +
+    sorted.map((c, rank) => {
+      const ratio = c[denKey] / c[numKey];
+      const rankCol = rank===0 ? '#1a5c3a' : rank===1 ? '#2d8f5e' : rank===2 ? '#854F0B' : 'var(--muted)';
+      const rankBg  = rank===0 ? '#ddf2e0' : rank===1 ? '#eaf6f0' : rank===2 ? '#faeeda' : 'var(--surface2)';
+      const pct = Math.min(100, (ratio / maxRatio) * 100);
+      const barCol = ratioColor(ratio);
+      return `<div class="card" style="cursor:pointer" onclick="openModal(${cpds.indexOf(c)})">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:24px;height:24px;border-radius:50%;background:${rankBg};color:${rankCol};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">${rank+1}</span>
+            <span style="font-weight:600;font-size:15px">${c.id}</span>
+          </div>
+          <span style="font-size:22px;font-weight:600;color:${ratioColor(ratio)};font-family:'Inter', sans-serif">${ratio >= 10 ? ratio.toFixed(0) : ratio.toFixed(1)}×</span>
+        </div>
+        <div style="display:flex;gap:0;margin-bottom:12px;border:0.5px solid var(--border);border-radius:var(--radius);overflow:hidden">
+          <div style="flex:1;padding:10px 12px;background:#f0f6fd;border-right:0.5px solid var(--border)">
+            <div style="font-size:10px;color:#1a3a5c;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">${keyLabel[numKey]} <span style="font-weight:400;opacity:0.7">${keyMethod[numKey]}</span></div>
+            <div style="font-size:16px;font-weight:600;color:#1a3a5c;font-family:'Inter', sans-serif">${fmt(c[numKey])} <span style="font-size:11px;font-weight:400">µM</span></div>
+          </div>
+          <div style="flex:1;padding:10px 12px;background:#fdf5ec">
+            <div style="font-size:10px;color:#5c3a1a;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">${keyLabel[denKey]} <span style="font-weight:400;opacity:0.7">${keyMethod[denKey]}</span></div>
+            <div style="font-size:16px;font-weight:600;color:#5c3a1a;font-family:'Inter', sans-serif">${fmt(c[denKey])} <span style="font-size:11px;font-weight:400">µM</span></div>
+          </div>
+        </div>
+        <div style="background:var(--surface2);border-radius:4px;height:6px">
+          <div style="background:${barCol};height:6px;border-radius:4px;width:${pct.toFixed(1)}%"></div>
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:var(--muted)">${keyLabel[numKey]} / ${keyLabel[denKey]} selectivity</div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+
+
+function reapplySortHighlight() {
+  document.querySelectorAll('td.sort-hl, th.sort-hl').forEach(el => el.classList.remove('sort-hl'));
+  if (!ovSortKey || ovSortKey === 'id') return;
+  const colMap = {tr2:'col-df2 col-tr', fp2:'col-df2 col-fp', tr1:'col-df1 col-tr', fp1:'col-df1 col-fp', tr3:'col-df3 col-tr', fp3:'col-df3 col-fp', thp:'col-thp', mol:'col-mol', mw:'col-pmw', logp:'col-plogp', tpsa:'col-ptpsa', le:'col-ple', lle:'col-plle'};
+  if (colMap[ovSortKey]) {
+    const cls = colMap[ovSortKey].split(' ');
+    document.querySelectorAll('td, th').forEach(el => {
+      if (cls.every(c => el.classList.contains(c))) el.classList.add('sort-hl');
+    });
+  }
+}
+
+
+
+function sortOv(key) {
+  if (ovSortKey === key) { ovSortAsc = !ovSortAsc; }
+  else { ovSortKey = key; ovSortAsc = key === 'id'; }
+
+  document.querySelectorAll('.sort-icon').forEach(el => {
+    el.classList.remove('sort-active');
+    el.textContent = '↕';
+  });
+  const icon = document.getElementById('si-' + key);
+  if (icon) {
+    icon.classList.add('sort-active');
+    icon.textContent = ovSortAsc ? '↑' : '↓';
+  }
+
+  document.querySelectorAll('td.sort-hl, th.sort-hl').forEach(el => el.classList.remove('sort-hl'));
+  const colMap = {tr2:'col-df2 col-tr', fp2:'col-df2 col-fp', tr1:'col-df1 col-tr', fp1:'col-df1 col-fp', tr3:'col-df3 col-tr', fp3:'col-df3 col-fp', thp:'col-thp', mol:'col-mol', mw:'col-pmw', logp:'col-plogp', tpsa:'col-ptpsa', le:'col-ple', lle:'col-plle'};
+  if (key !== 'id' && colMap[key]) {
+    const cls = colMap[key].split(' ');
+    document.querySelectorAll('td, th').forEach(el => {
+      if (cls.every(c => el.classList.contains(c))) el.classList.add('sort-hl');
+    });
+  }
+
+  cpds.sort((a, b) => {
+    let av, bv;
+    if (key === 'id') { av = a.id; bv = b.id; }
+    else if (key === 'le') { av = calcLE(a.tr2, a.smiles) ?? Infinity; bv = calcLE(b.tr2, b.smiles) ?? Infinity; }
+    else if (key === 'lle') { av = calcLLE(a.tr2, a.logp) ?? Infinity; bv = calcLLE(b.tr2, b.logp) ?? Infinity; }
+    else { av = a[key] ?? Infinity; bv = b[key] ?? Infinity; }
+    if (key === 'id') return ovSortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return ovSortAsc ? av - bv : bv - av;
+  });
+  upd();
+}
+
+
+
+function filterOv() {
+  const q = (document.getElementById('ov-search')?.value || '').trim().toLowerCase();
+  const clearBtn = document.getElementById('ov-search-clear');
+  const countEl = document.getElementById('ov-search-count');
+  if (clearBtn) clearBtn.style.display = q ? '' : 'none';
+  const rows = document.querySelectorAll('#ov-tbody tr.cpd-row');
+  let visible = 0;
+  rows.forEach(row => {
+    const id = row.dataset.id || '';
+    const show = !q || id.includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  if (countEl) {
+    if (q) { countEl.style.display = ''; countEl.textContent = `${visible} of ${rows.length} compound${rows.length !== 1 ? 's' : ''} shown`; }
+    else { countEl.style.display = 'none'; }
+  }
+}
+
+
+function fmt(v, dec) {
+  if (v===null||v===undefined) return '—';
+  if (dec!==undefined) return v.toFixed(dec);
+  return v<1 ? v.toFixed(2) : v<10 ? v.toFixed(1) : Math.round(v).toString();
+}
+
+function pb(tr2) {
+  if (tr2===null) return '<span class="badge bn">N/A</span>';
+  if (tr2<10) return '<span class="badge bh">High</span>';
+  if (tr2<100) return '<span class="badge bm">Med</span>';
+  return '<span class="badge bl">Low</span>';
+}
+
+function countHeavyAtoms(smiles) {
+  if (!smiles) return null;
+  let count = 0, i = 0;
+  while (i < smiles.length) {
+    const ch = smiles[i];
+    if (ch === '[') {
+      i++;
+      while (i < smiles.length && smiles[i] !== ']') {
+        if (/[A-Z]/.test(smiles[i]) && smiles[i] !== 'H') { count++; break; }
+        i++;
+      }
+      while (i < smiles.length && smiles[i] !== ']') i++;
+      i++;
+    } else if (/[A-Z]/.test(ch)) {
+      if (ch !== 'H') count++;
+      if (i+1 < smiles.length && /[a-z]/.test(smiles[i+1]) && !'cnos'.includes(smiles[i+1])) i++;
+      i++;
+    } else if (/[a-z]/.test(ch)) {
+      if (ch !== 'h') count++;
+      i++;
+    } else { i++; }
+  }
+  return count || null;
+}
+
+function calcLE(ic50nM, smiles) {
+  if (!ic50nM || !smiles) return null;
+  const n = countHeavyAtoms(smiles);
+  if (!n) return null;
+  const pic50 = 6 - Math.log10(ic50nM); // ic50 now in µM
+  return parseFloat((1.37 * pic50 / n).toFixed(3));
+}
+
+function calcLLE(ic50nM, logp) {
+  if (!ic50nM || logp === null || logp === undefined) return null;
+  const pic50 = 6 - Math.log10(ic50nM); // ic50 now in µM
+  return parseFloat((pic50 - logp).toFixed(2));
+}
+
+function upd() {
+  const empty = document.getElementById('tbl-empty'), tw = document.getElementById('tbl-wrap');
+  const ovEmpty = document.getElementById('ov-empty'), ovTw = document.getElementById('ov-tbl-wrap');
+
+  function fmtUM(v) {
+    if (v===null||v===undefined) return '—';
+    return v < 0.001 ? v.toFixed(4) : v < 0.01 ? v.toFixed(3) : v < 0.1 ? v.toFixed(3) : v < 1 ? v.toFixed(3) : v.toFixed(2);
+  }
+
+  const ovRowsHtml = cpds.map((c,i) => {
+    const le = calcLE(c.tr2, c.smiles);
+    const lle = calcLLE(c.tr2, c.logp);
+    return `<tr class="cpd-row" data-id="${c.id.toLowerCase()}" onclick="openModal(${i})">
+      <td onclick="event.stopPropagation()" style="padding:0 8px"><input type="checkbox" class="cmp-cb" data-idx="${i}" onchange="updateCompareBtn()" style="cursor:pointer"></td>
+      <td style="font-weight:600;text-align:left">${c.id}</td>
+      <td class="col-df2 col-tr" style="background:#f0f6fd">${fmtUM(c.tr2)}</td>
+      <td class="col-df2 col-fp" style="background:#e8f2fb">${fmtUM(c.fp2)}</td>
+      <td class="col-df1 col-tr" style="background:#f0f7f0">${fmtUM(c.tr1)}</td>
+      <td class="col-df1 col-fp" style="background:#e8f4e8">${fmtUM(c.fp1)}</td>
+      <td class="col-df3 col-tr" style="background:#f5f0fc">${fmtUM(c.tr3)}</td>
+      <td class="col-df3 col-fp" style="background:#f0eaf9">${fmtUM(c.fp3)}</td>
+      <td class="col-thp" style="background:#fdf5ec">${c.thp!==null ? c.thp.toFixed(3) : '—'}</td>
+      <td class="col-mol" style="background:#fdf0e6">${c.mol!==null ? c.mol.toFixed(3) : '—'}</td>
+      <td class="col-pmw">${c.mw || '—'}</td>
+      <td class="col-plogp">${c.logp !== null && c.logp !== undefined ? c.logp : '—'}</td>
+      <td class="col-ptpsa">${c.tpsa || '—'}</td>
+      <td class="col-ple" style="font-weight:500;color:${le!==null?(le>=0.3?'#1a5c3a':le>=0.2?'#854F0B':'#A32D2D'):'var(--muted)'}">${le !== null ? le : '—'}</td>
+      <td class="col-plle" style="font-weight:500;color:${lle!==null?(lle>=5?'#1a5c3a':lle>=3?'#854F0B':'#A32D2D'):'var(--muted)'}">${lle !== null ? lle : '—'}</td>
+      <td onclick="event.stopPropagation()"><button onclick="editCpd(${i})" style="border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface);cursor:pointer;font-size:11px;padding:4px 10px;color:var(--text)">Edit</button></td>
+    </tr>`;
+  }).join('');
+
+  const entryRowsHtml = cpds.map((c,i) => `<tr>
+      <td style="font-weight:600">${c.id}</td>
+      <td class="td-primary">${fmt(c.tr2)}</td>
+      <td class="td-mono" style="color:#1a3a5c">${fmt(c.tr1)}</td>
+      <td class="td-mono" style="color:#1a3a5c">${fmt(c.tr3)}</td>
+      <td class="td-fp">${fmt(c.fp2)}</td>
+      <td class="td-mono" style="color:#2a5c1a">${fmt(c.fp1)}</td>
+      <td class="td-mono" style="color:#2a5c1a">${fmt(c.fp3)}</td>
+      <td class="td-cb">${fmt(c.thp)}</td>
+      <td class="td-mono" style="color:#5c3a1a">${fmt(c.mol)}</td>
+      <td class="td-mono">${c.shift!==null ? c.shift+'×' : '—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${c.note||''}</td>
+      <td>${pb(c.tr2)}</td>
+      <td><button class="btn-danger btn-sm" onclick="rm(${i})">×</button></td>
+    </tr>`).join('');
+
+  if (!cpds.length) {
+    empty.style.display=''; tw.style.display='none';
+    ovEmpty.style.display=''; ovTw.style.display='none';
+    document.getElementById('ov-export').style.display='none';
+  } else {
+    empty.style.display='none'; tw.style.display='';
+    ovEmpty.style.display='none'; ovTw.style.display='';
+    document.getElementById('ov-export').style.display='';
+    document.getElementById('tbody').innerHTML = entryRowsHtml;
+    document.getElementById('ov-tbody').innerHTML = ovRowsHtml;
+    setTimeout(function() { reapplyColVisibility(); reapplySortHighlight(); filterOv(); }, 0);
+  }
+
+  const tr2s = cpds.map(c=>c.tr2).filter(v=>v!==null);
+  const thps = cpds.map(c=>c.thp).filter(v=>v!==null);
+  const sels = cpds.filter(c=>c.tr2&&c.tr1).map(c=>c.tr1/c.tr2);
+  const bestTR = tr2s.length ? fmt(Math.min(...tr2s))+' µM' : '—';
+  const bestCell = thps.length ? Math.min(...thps).toFixed(3)+' µM' : '—';
+  const avgSel = sels.length ? (sels.reduce((a,b)=>a+b,0)/sels.length).toFixed(1)+'×' : '—';
+
+  ['st-n','ov-n'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent = cpds.length; });
+  ['st-b','ov-b'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent = bestTR; });
+  ['st-sel','ov-sel'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent = avgSel; });
+  ['st-cell','ov-cell'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent = bestCell; });
+  document.getElementById('ss-n').textContent = cpds.length;
+  document.getElementById('ss-b').textContent = bestTR;
+  document.getElementById('ss-cell').textContent = bestCell;
+  saveData();
+}
+
+function serColor(ser) {
+  const sers = [...new Set(cpds.map(c=>c.ser))];
+  return COLORS[sers.indexOf(ser) % COLORS.length];
+}
+
+const hiddenCols = new Set();
+
+function toggleCol(col) {
+  if (hiddenCols.has(col)) hiddenCols.delete(col); else hiddenCols.add(col);
+  applyColVisibility();
+}
+
+function toggleAssay(assay) {
+  if (hiddenCols.has(assay)) hiddenCols.delete(assay); else hiddenCols.add(assay);
+  applyColVisibility();
+}
+
+function applyColVisibility() {
+  document.querySelectorAll('[class*="col-df"],[class*="col-tr"],[class*="col-fp"],[class*="col-thp"],[class*="col-mol"],[class*="col-pmw"],[class*="col-plogp"],[class*="col-ptpsa"],[class*="col-ple"],[class*="col-plle"]').forEach(el => el.classList.remove('col-hidden'));
+  hiddenCols.forEach(col => {
+    document.querySelectorAll('.col-'+col).forEach(el => el.classList.add('col-hidden'));
+  });
+  updateGroupColspans();
+  // Update Properties group header colspan
+  const propCols = ['pmw','plogp','ptpsa','ple','plle'];
+  const propHdr = document.querySelector('.col-pmw.col-plogp.col-ptpsa.col-ple.col-plle');
+  if (propHdr) {
+    const visible = propCols.filter(c => !hiddenCols.has(c)).length;
+    if (visible === 0) propHdr.classList.add('col-hidden');
+    else { propHdr.classList.remove('col-hidden'); propHdr.setAttribute('colspan', visible); }
+  }
+}
+
+function updateGroupColspans() {
+  [['df2','th-grp-df2'],['df1','th-grp-df1'],['df3','th-grp-df3']].forEach(([col, hdrId]) => {
+    const hdr = document.getElementById(hdrId);
+    if (!hdr) return;
+    const trHidden = hiddenCols.has(col) || hiddenCols.has('tr');
+    const fpHidden = hiddenCols.has(col) || hiddenCols.has('fp');
+    const count = (!trHidden?1:0) + (!fpHidden?1:0);
+    if (count === 0) { hdr.classList.add('col-hidden'); }
+    else { hdr.classList.remove('col-hidden'); hdr.setAttribute('colspan', count); }
+  });
+}
+
+function reapplyColVisibility() {
+  applyColVisibility();
+}
+
+
+function toggleAllGroup(btn, cols) {
+  const allHidden = cols.every(c => hiddenCols.has(c));
+  cols.forEach(c => {
+    if (allHidden) hiddenCols.delete(c); else hiddenCols.add(c);
+    const cb = document.getElementById('cb-' + c);
+    if (cb) cb.checked = allHidden;
+  });
+  btn.textContent = allHidden ? 'Hide all' : 'Show all';
+  applyColVisibility();
+}
+
+function toggleAllProps(btn) {
+  const propCols = ['pmw','plogp','ptpsa','ple','plle'];
+  const allHidden = propCols.every(c => hiddenCols.has(c));
+  propCols.forEach(c => {
+    if (allHidden) hiddenCols.delete(c); else hiddenCols.add(c);
+    const cb = document.getElementById('cb-' + c);
+    if (cb) cb.checked = allHidden;
+  });
+  btn.textContent = allHidden ? 'Hide all' : 'Show all';
+  applyColVisibility();
+}
+
+function updateCompareBtn() {
+  const checked = document.querySelectorAll('.cmp-cb:checked');
+  const wrap = document.getElementById('sb-compare-wrap');
+  const btn = document.getElementById('sb-btn-compare');
+  const hint = document.getElementById('sb-compare-hint');
+  const count = document.getElementById('sb-compare-count');
+  if (!wrap) return;
+  if (checked.length >= 2) {
+    wrap.style.display = '';
+    if (count) count.textContent = checked.length;
+    if (hint) hint.style.display = 'none';
+  } else if (checked.length === 1) {
+    wrap.style.display = '';
+    if (hint) hint.style.display = '';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function toggleAllCompare(cb) {
+  document.querySelectorAll('.cmp-cb').forEach(el => el.checked = cb.checked);
+  updateCompareBtn();
+}
+
+function closeCmp() {
+  document.getElementById('cmp-modal').style.display = 'none';
+}
+
+function openCompare() {
+  const checked = [...document.querySelectorAll('.cmp-cb:checked')];
+  if (checked.length < 2) return;
+  const compounds = checked.map(cb => cpds[parseInt(cb.dataset.idx)]);
+  const ref = compounds[0];
+
+  function getV(c, key) {
+    if (key === 'le') return calcLE(c.tr2, c.smiles);
+    if (key === 'lle') return calcLLE(c.tr2, c.logp);
+    return c[key] !== undefined ? c[key] : null;
+  }
+
+  function deltaTag(vRef, vCmp, lowerBetter) {
+    if (vRef === null || vCmp === null || vRef === 0) return '';
+    const fold = vCmp / vRef;
+    const better = lowerBetter ? fold < 1 : fold > 1;
+    const color = better ? '#1a5c3a' : '#A32D2D';
+    // Always show fold as improvement factor (always >= 1), with arrow indicating direction
+    const factor = better ? (1/fold) : fold;
+    const label = factor >= 10 ? factor.toFixed(0)+'×' : factor.toFixed(1)+'×';
+    const arrow = better ? '↑' : '↓';
+    return ` <span style="font-size:10px;color:${color}">(${arrow}${label})</span>`;
+  }
+
+  function cmpCell(c, key, fmtFn, lowerBetter, isRef) {
+    const v = getV(c, key);
+    const vRef = isRef ? null : getV(ref, key);
+    const formatted = v !== null ? fmtFn(v) : '—';
+    const neutral = lowerBetter === null;
+    const d = (!isRef && !neutral && v !== null && vRef !== null) ? deltaTag(vRef, v, lowerBetter) : '';
+    const better = !isRef && !neutral && v !== null && vRef !== null && (lowerBetter ? v < vRef : v > vRef);
+    const worse  = !isRef && !neutral && v !== null && vRef !== null && (lowerBetter ? v > vRef : v < vRef);
+    const color = better ? 'color:#1a5c3a;font-weight:600' : worse ? 'color:#A32D2D;font-weight:600' : '';
+    const bg = isRef ? 'background:rgba(26,58,92,0.10);border-left:3px solid #1a3a5c;border-right:3px solid #1a3a5c;' : '';
+    return `<td class="mono" style="padding:8px 10px;text-align:center;border-bottom:0.5px solid var(--border);font-size:13px;${color};${bg}">${formatted}${d}</td>`;
+  }
+
+  function cmpRow(label, key, fmtFn, lowerBetter=true) {
+    if (compounds.every(c => getV(c, key) === null)) return '';
+    return `<tr><td style="padding:8px 10px;font-size:12px;color:var(--text);border-bottom:0.5px solid var(--border)">${label}</td>${compounds.map((c,i) => cmpCell(c, key, fmtFn, lowerBetter, i===0)).join('')}</tr>`;
+  }
+
+  function cmpSection(title, color, rows) {
+    const content = rows.join('');
+    if (!content) return '';
+    return `<tr><td colspan="${compounds.length+1}" style="padding:12px 10px 5px;font-size:11px;font-weight:600;text-align:left;color:${color};background:var(--surface2);border-top:2px solid ${color}22">${title}</td></tr>${content}`;
+  }
+
+  const fn = (v, d) => {
+    if (d !== undefined) return v.toFixed(d);
+    // Auto precision: show enough decimals to be meaningful
+    if (v === 0) return '0';
+    if (Math.abs(v) < 0.001) return v.toFixed(4);
+    if (Math.abs(v) < 0.01)  return v.toFixed(3);
+    if (Math.abs(v) < 0.1)   return v.toFixed(3);
+    if (Math.abs(v) < 1)     return v.toFixed(3);
+    if (Math.abs(v) < 10)    return v.toFixed(2);
+    return v.toFixed(1);
+  };
+
+
+  const structs = compounds.map((c,i) => `
+    <div style="border:0.5px solid ${i===0?'#1a3a5c':' var(--border)'};border-radius:var(--radius);background:${i===0?'rgba(26,58,92,0.04)':'var(--surface2)'};height:150px;padding:4px">
+      <div style="font-size:11px;font-weight:600;text-align:center;margin-bottom:2px;color:${i===0?'#1a3a5c':'var(--muted)'}">${c.id}${i===0?' <span style="background:#1a3a5c;color:#fff;border-radius:3px;padding:0 5px;font-size:9px;font-family:\'Inter\',sans-serif">REF</span>':''}</div>
+      <div id="cmp-struct-${i}" style="width:100%;height:120px;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:var(--muted)">No structure</span></div>
+    </div>`).join('');
+
+  const colHeaders = compounds.map((c,i) =>
+    `<th style="padding:8px 10px;text-align:center;font-size:12px;font-weight:600;background:${i===0?'rgba(26,58,92,0.12)':'var(--surface2)'};border-bottom:0.5px solid var(--border);${i===0?'border-left:3px solid #1a3a5c;border-right:3px solid #1a3a5c;':''}min-width:100px;color:${i===0?'#1a3a5c':'var(--text)'}">${c.id}${i===0?'<br><span style="font-size:9px;font-weight:400;color:#1a3a5c;opacity:0.7">reference</span>':''}</th>`
+  ).join('');
+
+  const body = `
+    <div style="display:grid;grid-template-columns:repeat(${compounds.length},1fr);gap:8px;margin-bottom:1rem">${structs}</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Fold change vs reference. <span style="color:#1a5c3a;font-weight:500">Green = better</span> · <span style="color:#A32D2D;font-weight:500">Red = worse</span>.</div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--muted);background:var(--surface2);border-bottom:0.5px solid var(--border)">Parameter</th>${colHeaders}</tr></thead>
+      <tbody>
+        ${cmpSection('TR-FRET — IC50 (µM)', '#1a3a5c', [
+          cmpRow('YTHDF2', 'tr2', v=>fn(v)),
+          cmpRow('YTHDF1', 'tr1', v=>fn(v)),
+          cmpRow('YTHDF3', 'tr3', v=>fn(v)),
+          cmpRow('DC1', 'dc1', v=>fn(v)),
+        ])}
+        ${cmpSection('FP — IC50 (µM)', '#2a5c1a', [
+          cmpRow('YTHDF2', 'fp2', v=>fn(v)),
+          cmpRow('YTHDF1', 'fp1', v=>fn(v)),
+          cmpRow('YTHDF3', 'fp3', v=>fn(v)),
+          cmpRow('YTHDC1', 'fdc1', v=>fn(v)),
+        ])}
+        ${cmpSection('Cytotoxicity — GI50 (µM)', '#5c3a1a', [
+          cmpRow('THP-1', 'thp', v=>fn(v,3)),
+          cmpRow('MOLM-13', 'mol', v=>fn(v,3)),
+        ])}
+        ${cmpSection('Properties', '#444', [
+          cmpRow('MW (Da)', 'mw', v=>String(v), null),
+          cmpRow('LogP', 'logp', v=>String(v), null),
+          cmpRow('TPSA (Å²)', 'tpsa', v=>String(v), null),
+          cmpRow('LE', 'le', v=>fn(v,3), false),
+          cmpRow('LLE', 'lle', v=>fn(v,2), false),
+        ])}
+      </tbody>
+    </table>`;
+
+  document.getElementById('cmp-body').innerHTML = body;
+  document.getElementById('cmp-modal').style.display = 'flex';
+  compounds.forEach((c,i) => {
+    if (c.smiles) setTimeout(() => drawSmilesToEl(c.smiles, document.getElementById('cmp-struct-'+i), 180, 118, c.structTransform), 50);
+  });
+}
+
+// Saved zoom state — preserved across rerenders
+let savedZoom = null;
+
+function toggleRegression() {
+  // Capture actual rendered zoom from chart scales (not options, which may be undefined)
+  if (plotChart && plotChart.scales && plotChart.scales.x) {
+    savedZoom = {
+      xMin: plotChart.scales.x.min,
+      xMax: plotChart.scales.x.max,
+      yMin: plotChart.scales.y.min,
+      yMax: plotChart.scales.y.max
+    };
+  }
+  rplot();
+}
+
+function resetZoom() {
+  savedZoom = null;
+  rplot();
+}
+
+function fitToIncluded() {
+  if (!plotChart) return;
+  const xk = document.getElementById('xax').value, yk = document.getElementById('yax').value;
+  function getVal(c, k) {
+    if (k==='le') return calcLE(c.tr2, c.smiles);
+    if (k==='lle') return calcLLE(c.tr2, c.logp);
+    return c[k];
+  }
+  const included = cpds.filter(c => !window.plotExcluded?.has(c.id) && getVal(c,xk)!==null && getVal(c,yk)!==null);
+  if (!included.length) return;
+  const xs = included.map(c => getVal(c,xk)), ys = included.map(c => getVal(c,yk));
+  const xMin = Math.min(...xs), xMax = Math.max(...xs), yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const xPad = (xMax - xMin) * 0.35 || xMin * 0.35 || 0.5;
+  const yPad = (yMax - yMin) * 0.35 || yMin * 0.35 || 0.5;
+  plotChart.options.scales.x.min = xMin - xPad;
+  plotChart.options.scales.x.max = xMax + xPad;
+  plotChart.options.scales.y.min = yMin - yPad;
+  plotChart.options.scales.y.max = yMax + yPad;
+  plotChart.update('none');
+  savedZoom = {
+    xMin: plotChart.options.scales.x.min, xMax: plotChart.options.scales.x.max,
+    yMin: plotChart.options.scales.y.min, yMax: plotChart.options.scales.y.max
+  };
+}
+
+function attachZoom(chart) {
+  const canvas = chart.canvas;
+  let isDragging = false, dragAxis = null, dragStart = {}, startLimits = {};
+  let dragMoved = false;
+
+  function getZone(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const sx = chart.scales.x, sy = chart.scales.y;
+    if (y > sy.bottom && x >= sx.left && x <= sx.right) return 'x';
+    if (x < sx.left  && y >= sy.top  && y <= sy.bottom) return 'y';
+    if (x >= sx.left && x <= sx.right && y >= sy.top && y <= sy.bottom) return 'plot';
+    return null;
+  }
+
+  canvas.addEventListener('mousemove', function(e) {
+    if (!isDragging) {
+      const z = getZone(e);
+      const tip = document.getElementById('plot-tooltip');
+      const svg = document.getElementById('crosshair-svg');
+      if (z === 'plot') {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        const sx = chart.scales.x, sy = chart.scales.y;
+
+        if (svg) {
+          svg.style.display = '';
+          const xv = sx.getValueForPixel(mx), yv = sy.getValueForPixel(my);
+          const xStr = fmt(xv), yStr = fmt(yv);
+          const PAD = 3, BH = 18, BW_X = Math.max(44, xStr.length * 7 + 12), BW_Y = Math.max(36, yStr.length * 7 + 12);
+          document.getElementById('ch-vline').setAttribute('x1', mx); document.getElementById('ch-vline').setAttribute('x2', mx);
+          document.getElementById('ch-vline').setAttribute('y1', sy.top); document.getElementById('ch-vline').setAttribute('y2', sy.bottom);
+          document.getElementById('ch-hline').setAttribute('x1', sx.left); document.getElementById('ch-hline').setAttribute('x2', sx.right);
+          document.getElementById('ch-hline').setAttribute('y1', my); document.getElementById('ch-hline').setAttribute('y2', my);
+          const xbx = Math.max(sx.left + BW_X/2, Math.min(sx.right - BW_X/2, mx));
+          document.getElementById('ch-xbox').setAttribute('x', xbx - BW_X/2); document.getElementById('ch-xbox').setAttribute('y', sy.bottom + PAD);
+          document.getElementById('ch-xbox').setAttribute('width', BW_X); document.getElementById('ch-xbox').setAttribute('height', BH);
+          document.getElementById('ch-xval').setAttribute('x', xbx); document.getElementById('ch-xval').setAttribute('y', sy.bottom + PAD + BH/2);
+          document.getElementById('ch-xval').textContent = xStr;
+          document.getElementById('ch-ybox').setAttribute('x', sx.left - BW_Y - PAD); document.getElementById('ch-ybox').setAttribute('y', my - BH/2);
+          document.getElementById('ch-ybox').setAttribute('width', BW_Y); document.getElementById('ch-ybox').setAttribute('height', BH);
+          document.getElementById('ch-yval').setAttribute('x', sx.left - PAD - 3); document.getElementById('ch-yval').setAttribute('y', my);
+          document.getElementById('ch-yval').textContent = yStr;
+        }
+
+        let found = null, foundDist = Infinity;
+        chart.data.datasets.forEach(dataset => {
+          if (dataset.label === 'Regression') return;
+          dataset.data.forEach(pt => {
+            if (!pt.label) return;
+            const px = sx.getPixelForValue(pt.x), py = sy.getPixelForValue(pt.y);
+            const d = Math.hypot(mx - px, my - py);
+            if (d < foundDist && d < 18) { foundDist = d; found = pt; }
+          });
+        });
+        if (found && tip) {
+          canvas.style.cursor = 'pointer';
+          const xLabel = chart.options.scales.x.title?.text || 'X';
+          const yLabel = chart.options.scales.y.title?.text || 'Y';
+          const excl = window.plotExcluded && window.plotExcluded.has(found.label);
+          tip.innerHTML = `<div style="font-weight:600;font-size:13px;margin-bottom:6px;color:#1a1a18">${found.label}${excl?' <span style="font-size:10px;color:#888;font-weight:400">[excluded]</span>':''}</div><div style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;color:#444"><span style="color:#888;font-size:11px">${xLabel}</span><span style="font-weight:500">${fmt(found.x)} \u00b5M</span><span style="color:#888;font-size:11px">${yLabel}</span><span style="font-weight:500">${fmt(found.y)} \u00b5M</span></div>`;
+          const tx = e.clientX + 14, ty = e.clientY - 10;
+          tip.style.left = (tx + 190 > window.innerWidth ? e.clientX - 200 : tx) + 'px';
+          tip.style.top  = (ty + 100 > window.innerHeight ? e.clientY - 100 : ty) + 'px';
+          tip.style.display = 'block';
+        } else if (tip) {
+          canvas.style.cursor = 'crosshair';
+          tip.style.display = 'none';
+        }
+      } else {
+        canvas.style.cursor = z === 'x' ? 'ew-resize' : z === 'y' ? 'ns-resize' : 'default';
+        if (tip) tip.style.display = 'none';
+        if (svg) svg.style.display = 'none';
+      }
+      return;
+    }
+    const moved = Math.abs(e.clientX - dragStart.x) > 3 || Math.abs(e.clientY - dragStart.y) > 3;
+    if (!moved) return;
+    dragMoved = true;
+    const sx = chart.scales.x, sy = chart.scales.y;
+
+    if (dragAxis === 'x') {
+      const dx = (e.clientX - dragStart.x) / (sx.right - sx.left);
+      const factor = Math.exp(-dx * 2);
+      const mid = (startLimits.xMin + startLimits.xMax) / 2;
+      const half = (startLimits.xMax - startLimits.xMin) / 2 * factor;
+      chart.options.scales.x.min = mid - half;
+      chart.options.scales.x.max = mid + half;
+    } else if (dragAxis === 'y') {
+      const dy = (e.clientY - dragStart.y) / (sy.bottom - sy.top);
+      const factor = Math.exp(dy * 2);
+      const mid = (startLimits.yMin + startLimits.yMax) / 2;
+      const half = (startLimits.yMax - startLimits.yMin) / 2 * factor;
+      chart.options.scales.y.min = mid - half;
+      chart.options.scales.y.max = mid + half;
+    } else {
+      // Pan inside plot
+      const rect = canvas.getBoundingClientRect();
+      const dx = (e.clientX - dragStart.x) / rect.width  * (startLimits.xMax - startLimits.xMin);
+      const dy = (e.clientY - dragStart.y) / rect.height * (startLimits.yMax - startLimits.yMin);
+      chart.options.scales.x.min = startLimits.xMin - dx;
+      chart.options.scales.x.max = startLimits.xMax - dx;
+      chart.options.scales.y.min = startLimits.yMin + dy;
+      chart.options.scales.y.max = startLimits.yMax + dy;
+      canvas.style.cursor = 'grabbing';
+    }
+    chart.update('none');
+  });
+
+  canvas.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    const z = getZone(e);
+    if (!z) return;
+    document.getElementById('plot-tooltip').style.display = 'none';
+    const chSvg = document.getElementById('crosshair-svg'); if (chSvg) chSvg.style.display = 'none';
+    isDragging = true;
+    dragMoved = false;
+    dragAxis = z === 'plot' ? 'plot' : z;
+    dragStart = {x: e.clientX, y: e.clientY};
+    const sx = chart.scales.x, sy = chart.scales.y;
+    startLimits = {xMin: sx.min, xMax: sx.max, yMin: sy.min, yMax: sy.max};
+    if (z !== 'plot') e.preventDefault();
+  });
+
+  window.addEventListener('mouseup', function(e) {
+    if (!isDragging) return;
+    const wasDrag = dragMoved;
+    const savedAxis = dragAxis;
+    const savedStart = {...dragStart};
+    isDragging = false;
+    dragMoved = false;
+    canvas.style.cursor = 'crosshair';
+    if (wasDrag) {
+      savedZoom = {
+        xMin: chart.scales.x.min, xMax: chart.scales.x.max,
+        yMin: chart.scales.y.min, yMax: chart.scales.y.max
+      };
+      return;
+    }
+    // It was a click — find nearest point using mousedown position
+    if (savedAxis !== 'plot') return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = savedStart.x - rect.left, my = savedStart.y - rect.top;
+    const sx = chart.scales.x, sy = chart.scales.y;
+    let nearest = null, nearestDist = Infinity;
+    chart.data.datasets.forEach(dataset => {
+      if (dataset.label === 'Regression') return;
+      dataset.data.forEach(pt => {
+        if (!pt.label) return;
+        const px = sx.getPixelForValue(pt.x), py = sy.getPixelForValue(pt.y);
+        const dist = Math.hypot(mx - px, my - py);
+        if (dist < nearestDist && dist < 18) { nearestDist = dist; nearest = pt.label; }
+      });
+    });
+    if (!nearest) return;
+    const idx = cpds.findIndex(c => c.id === nearest);
+    if (idx >= 0) openModal(idx);
+  });
+
+  // Right-click: toggle exclusion from regression IN-PLACE (no rplot, no zoom reset)
+  canvas.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    // Find nearest data point within 20px
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const sx = chart.scales.x, sy = chart.scales.y;
+    let nearest = null, nearestDist = Infinity;
+    chart.data.datasets.forEach(dataset => {
+      if (dataset.label === 'Regression') return;
+      dataset.data.forEach(pt => {
+        if (!pt.label) return;
+        const px = sx.getPixelForValue(pt.x), py = sy.getPixelForValue(pt.y);
+        const dist = Math.hypot(mx - px, my - py);
+        if (dist < nearestDist && dist < 20) { nearestDist = dist; nearest = pt.label; }
+      });
+    });
+    if (!nearest) return;
+
+    // Toggle exclusion
+    if (window.plotExcluded.has(nearest)) window.plotExcluded.delete(nearest);
+    else window.plotExcluded.add(nearest);
+
+    // Update appearance in-place without destroying the chart
+    chart.data.datasets.forEach((dataset, di) => {
+      if (dataset.label === 'Regression') return;
+      const excl = window.plotExcluded.has(dataset.label);
+      const colorIdx = chart.data.datasets.filter(d => d.label !== 'Regression').indexOf(dataset);
+      dataset.backgroundColor = excl ? 'rgba(180,178,169,0.4)' : COLORS[di % COLORS.length] + 'cc';
+      dataset.borderColor    = excl ? 'rgba(180,178,169,0.8)' : 'transparent';
+      dataset.borderWidth    = excl ? 1.5 : 0;
+    });
+
+    // Recompute regression in-place
+    const showReg = document.getElementById('show-reg').checked;
+    const regIdx = chart.data.datasets.findIndex(d => d.label === 'Regression');
+    const logX = document.getElementById('log-x').checked;
+    const logY = document.getElementById('log-y').checked;
+
+    if (showReg && !logX && !logY) {
+      const xk = document.getElementById('xax').value, yk = document.getElementById('yax').value;
+      function getVal2(c, k) {
+        if (k==='le') return calcLE(c.tr2,c.smiles);
+        if (k==='lle') return calcLLE(c.tr2,c.logp);
+        return c[k];
+      }
+      const included = cpds.filter(c => !window.plotExcluded.has(c.id) && getVal2(c,xk)!==null && getVal2(c,yk)!==null);
+      if (included.length >= 2) {
+        const xs = included.map(c=>getVal2(c,xk)), ys = included.map(c=>getVal2(c,yk));
+        const n=xs.length, mx2=xs.reduce((a,b)=>a+b,0)/n, my2=ys.reduce((a,b)=>a+b,0)/n;
+        const ssxy=xs.reduce((s,x,i)=>s+(x-mx2)*(ys[i]-my2),0);
+        const ssx=xs.reduce((s,x)=>s+(x-mx2)**2,0), ssy=ys.reduce((s,y)=>s+(y-my2)**2,0);
+        if (ssx>0 && ssy>0) {
+          const slope=ssxy/ssx, intercept=my2-slope*mx2, r2=(ssxy**2)/(ssx*ssy);
+          const xmin=Math.min(...xs), xmax=Math.max(...xs);
+          const regData = [{x:xmin,y:slope*xmin+intercept},{x:xmax,y:slope*xmax+intercept}];
+          if (regIdx >= 0) {
+            chart.data.datasets[regIdx].data = regData;
+          } else {
+            chart.data.datasets.push({label:'Regression',data:regData,type:'line',borderColor:'#888780',borderWidth:1.5,borderDash:[5,4],pointRadius:0,backgroundColor:'transparent'});
+          }
+          // Update legend R²
+          const leg = document.getElementById('pleg');
+          if (leg) {
+            const excInfo = window.plotExcluded.size ? ` · ${window.plotExcluded.size} excluded` : '';
+            const regSpan = [...leg.querySelectorAll('span')].find(s=>s.textContent.includes('Regression'));
+            if (regSpan) regSpan.innerHTML = `<span style="display:inline-block;width:18px;height:2px;background:#888780;border-top:1.5px dashed #888780;vertical-align:middle;margin-right:4px"></span>Regression (R²=${r2.toFixed(3)}${excInfo})`;
+          }
+        }
+      } else if (regIdx >= 0) {
+        chart.data.datasets.splice(regIdx, 1);
+      }
+    }
+
+    // Update legend strikethrough
+    const leg = document.getElementById('pleg');
+    if (leg) {
+      [...leg.querySelectorAll('span')].forEach(span => {
+        const lsq = span.querySelector('.lsq');
+        if (!lsq) return;
+        const txt = span.textContent.trim();
+        const isExcl = window.plotExcluded.has(txt);
+        span.style.opacity = isExcl ? '0.45' : '1';
+        span.style.textDecoration = isExcl ? 'line-through' : 'none';
+        if (lsq) lsq.style.background = isExcl ? '#b4b2a9' : '';
+      });
+    }
+
+    chart.update('none'); // update without animation, preserves zoom completely
+  });
+
+  canvas.addEventListener('mouseleave', function() {
+    const tip = document.getElementById('plot-tooltip');
+    const svg = document.getElementById('crosshair-svg');
+    if (tip) tip.style.display = 'none';
+    if (svg) svg.style.display = 'none';
+    canvas.style.cursor = 'default';
+  });
+
+  canvas.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 0.85 : 1.18;
+    const z = getZone(e);
+    const rect = canvas.getBoundingClientRect();
+    const sx = chart.scales.x, sy = chart.scales.y;
+    const xRel = (e.clientX - rect.left - sx.left) / (sx.right - sx.left);
+    const yRel = (e.clientY - rect.top  - sy.top)  / (sy.bottom - sy.top);
+    const xCenter = sx.min + Math.max(0, Math.min(1, xRel)) * (sx.max - sx.min);
+    const yCenter = sy.max - Math.max(0, Math.min(1, yRel)) * (sy.max - sy.min);
+    if (z === 'x' || z === 'plot') {
+      chart.options.scales.x.min = xCenter - (xCenter - sx.min) * factor;
+      chart.options.scales.x.max = xCenter + (sx.max - xCenter) * factor;
+    }
+    if (z === 'y' || z === 'plot') {
+      chart.options.scales.y.min = yCenter - (yCenter - sy.min) * factor;
+      chart.options.scales.y.max = yCenter + (sy.max - yCenter) * factor;
+    }
+    chart.update('none');
+    savedZoom = {
+      xMin: chart.scales.x.min, xMax: chart.scales.x.max,
+      yMin: chart.scales.y.min, yMax: chart.scales.y.max
+    };
+  }, {passive: false});
+}
+
+
+
+
+function rplot() {
+  const type = document.getElementById('ptype').value;
+  document.getElementById('xc').style.display = type==='sar' ? 'flex' : 'none';
+  document.getElementById('yc').style.display = type==='sar' ? 'flex' : 'none';
+  document.getElementById('log-ctrl').style.display = type==='sar' ? 'flex' : 'none';
+  document.getElementById('log-bar').style.display = type==='sar' ? 'flex' : 'none';
+  document.getElementById('zoom-controls').style.display = 'none';
+  document.getElementById('zoom-reset-btn').style.display = 'none';
+  if (type !== 'sar') { if (window.plotExcluded) window.plotExcluded.clear(); }
+  if (plotChart) { plotChart.destroy(); plotChart=null; }
+  const ctx = document.getElementById('pchart').getContext('2d');
+  const leg = document.getElementById('pleg'); leg.innerHTML='';
+  if (!cpds.length) {
+    ctx.clearRect(0,0,9999,9999);
+    ctx.fillStyle='#888'; ctx.font='14px Inter,sans-serif'; ctx.textAlign='center';
+    ctx.fillText('No compounds yet — add data on the Compounds tab.', 300, 180);
+    return;
+  }
+  if (type==='sar') {
+    const xk = document.getElementById('xax').value, yk = document.getElementById('yax').value;
+    const logX = document.getElementById('log-x').checked;
+    const logY = document.getElementById('log-y').checked;
+    const xL = {mw:'MW (Da)',logp:'LogP',tpsa:'TPSA (Å²)',tr2:'TR-FRET DF2 (µM)',tr1:'TR-FRET DF1 (µM)',tr3:'TR-FRET DF3 (µM)',fp2:'FP DF2 (µM)',fp1:'FP DF1 (µM)',fp3:'FP DF3 (µM)',thp:'THP-1 GI50 (µM)',mol:'MOLM-13 GI50 (µM)',le:'LE',lle:'LLE'};
+    const yL = {mw:'MW (Da)',logp:'LogP',tpsa:'TPSA (Å²)',tr2:'TR-FRET DF2 (µM)',tr1:'TR-FRET DF1 (µM)',tr3:'TR-FRET DF3 (µM)',fp2:'FP DF2 (µM)',fp1:'FP DF1 (µM)',fp3:'FP DF3 (µM)',thp:'THP-1 GI50 (µM)',mol:'MOLM-13 GI50 (µM)',le:'LE',lle:'LLE'};
+
+    function getVal(c, k) {
+      if (k === 'le') return calcLE(c.tr2, c.smiles);
+      if (k === 'lle') return calcLLE(c.tr2, c.logp);
+      return c[k];
+    }
+    const validPts = cpds.filter(c=>{
+      const xv=getVal(c,xk), yv=getVal(c,yk);
+      return xv!==null&&yv!==null&&(!logX||xv>0)&&(!logY||yv>0);
+    });
+
+    // Per-plot exclusion set (reset on axis change or plot type change)
+    if (!window.plotExcluded) window.plotExcluded = new Set();
+
+    // Build datasets — excluded points shown greyed
+    const ds = validPts.map((c,i) => {
+      const excl = window.plotExcluded.has(c.id);
+      return {
+        label: c.id,
+        data: [{x:getVal(c,xk), y:getVal(c,yk), label:c.id}],
+        backgroundColor: excl ? 'rgba(180,178,169,0.4)' : COLORS[i%COLORS.length]+'cc',
+        borderColor: excl ? 'rgba(180,178,169,0.8)' : 'transparent',
+        borderWidth: excl ? 1.5 : 0,
+        pointRadius: 7, pointHoverRadius: 10,
+      };
+    });
+
+    // Legend — strikethrough for excluded
+    ds.forEach((d,i) => {
+      const excl = window.plotExcluded.has(d.label);
+      leg.innerHTML += `<span style="opacity:${excl?0.45:1};text-decoration:${excl?'line-through':'none'};cursor:default" title="${excl?'Right-click dot to include':'Right-click dot to exclude from regression'}"><span class="lsq" style="background:${excl?'#b4b2a9':COLORS[i%COLORS.length]}"></span>${d.label}</span>`;
+    });
+
+    // Regression on non-excluded points only
+    const showReg = document.getElementById('show-reg').checked;
+    const includedPts = validPts.filter(c => !window.plotExcluded.has(c.id));
+    if (includedPts.length >= 2 && !logX && !logY && showReg) {
+      const xs = includedPts.map(c=>getVal(c,xk)), ys = includedPts.map(c=>getVal(c,yk));
+      const n = xs.length;
+      const mx = xs.reduce((a,b)=>a+b,0)/n, my = ys.reduce((a,b)=>a+b,0)/n;
+      const ssxy = xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my),0);
+      const ssx  = xs.reduce((s,x)=>s+(x-mx)**2,0);
+      const ssy  = ys.reduce((s,y)=>s+(y-my)**2,0);
+      if (ssx > 0 && ssy > 0) {
+        const slope = ssxy/ssx, intercept = my - slope*mx;
+        const r2 = (ssxy**2)/(ssx*ssy);
+        const xmin = Math.min(...xs), xmax = Math.max(...xs);
+        ds.push({
+          label:'Regression', data:[{x:xmin,y:slope*xmin+intercept},{x:xmax,y:slope*xmax+intercept}],
+          type:'line', borderColor:'#888780', borderWidth:1.5,
+          borderDash:[5,4], pointRadius:0, backgroundColor:'transparent'
+        });
+        const excInfo = window.plotExcluded.size ? ` · ${window.plotExcluded.size} excluded` : '';
+        leg.innerHTML += `<span><span style="display:inline-block;width:18px;height:2px;background:#888780;border-top:1.5px dashed #888780;vertical-align:middle;margin-right:4px"></span>Regression (R²=${r2.toFixed(3)}${excInfo})</span>`;
+        if (window.plotExcluded.size > 0) {
+          leg.innerHTML += `<span style="cursor:pointer;color:var(--accent2);font-size:11px" onclick="window.plotExcluded.clear();savedZoom=null;rplot()">Reset excluded</span>`;
+        }
+      }
+    }
+
+    if (logX || logY) leg.innerHTML += `<span style="color:var(--muted);font-size:11px">Log scale active</span>`;
+
+    // Compute padded axis limits for initial / reset render
+    function paddedLimits(pts, xKey, yKey, pad) {
+      const xs = pts.map(c=>getVal(c,xKey)), ys = pts.map(c=>getVal(c,yKey));
+      const xMin=Math.min(...xs), xMax=Math.max(...xs), yMin=Math.min(...ys), yMax=Math.max(...ys);
+      const xRange=xMax-xMin, yRange=yMax-yMin;
+      const xPad = xRange>0 ? xRange*pad : (xMin>0 ? xMin*pad : 0.5);
+      const yPad = yRange>0 ? yRange*pad : (yMin>0 ? yMin*pad : 0.5);
+      return {xMin:xMin-xPad, xMax:xMax+xPad, yMin:yMin-yPad, yMax:yMax+yPad};
+    }
+
+    const initLimits = savedZoom
+      ? savedZoom
+      : (validPts.length ? paddedLimits(validPts, xk, yk, 0.35) : null);
+
+    plotChart = new Chart(ctx, {
+      type:'scatter',
+      data:{datasets:ds},
+      options:{
+        responsive:true, maintainAspectRatio:false, layout:{padding:16},
+        plugins:{
+          legend:{display:false},
+          tooltip:{enabled:false},
+        },
+        scales:{
+          x:{ type: logX?'logarithmic':'linear', title:{display:true,text:(logX?'log ':'')+xL[xk],font:{size:12}}, grid:{color: ctx2 => ctx2.tick?.value === 0 ? 'rgba(80,80,80,0.55)' : 'rgba(0,0,0,0.06)', lineWidth: ctx2 => ctx2.tick?.value === 0 ? 2 : 1},
+              ...(initLimits ? {min:initLimits.xMin, max:initLimits.xMax} : {}) },
+          y:{ type: logY?'logarithmic':'linear', title:{display:true,text:(logY?'log ':'')+yL[yk],font:{size:12}}, grid:{color: ctx2 => ctx2.tick?.value === 0 ? 'rgba(80,80,80,0.55)' : 'rgba(0,0,0,0.06)', lineWidth: ctx2 => ctx2.tick?.value === 0 ? 2 : 1},
+              ...(initLimits ? {min:initLimits.yMin, max:initLimits.yMax} : {}) }
+        }
+      }
+    });
+
+    // Right-click to toggle exclusion from regression
+    document.getElementById('zoom-controls').style.display = 'block';
+    document.getElementById('zoom-reset-btn').style.display = '';
+    document.getElementById('zoom-fit-btn').style.display = '';
+    attachZoom(plotChart);
+
+    // Interaction hint
+    const hint = document.getElementById('zoom-controls').querySelector('span');
+    if (hint) hint.textContent = 'Left-click dot → open card · Right-click dot → exclude/include from regression · Scroll or drag axis to zoom';
+  } else if (type==='bar') {
+    const fields=['tr2','tr1','tr3','fp2','fp1','fp3','thp','mol'];
+    const labels=['TR DF2★','TR DF1','TR DF3','FP DF2','FP DF1','FP DF3','THP-1','MOLM-13'];
+    const ds = cpds.map((c,ci) => ({
+      label:c.id, data:fields.map(f=>c[f]),
+      backgroundColor:COLORS[ci%COLORS.length]+'99',
+      borderColor:COLORS[ci%COLORS.length], borderWidth:1
+    }));
+    cpds.forEach((c,i) => { leg.innerHTML += `<span><span class="lsq" style="background:${COLORS[i%COLORS.length]}"></span>${c.id}</span>`; });
+    plotChart = new Chart(ctx, {type:'bar', data:{labels,datasets:ds}, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:false,maxRotation:30,font:{size:11}}},y:{title:{display:true,text:'IC50 / GI50',font:{size:12}}}}}});
+  } else if (type==='heat') {
+    const keys=['tr2','tr1','tr3','fp2','fp1','fp3','thp','mol'];
+    const labs=['TR-DF2','TR-DF1','TR-DF3','FP-DF2','FP-DF1','FP-DF3','THP-1','MOLM13'];
+    const pts = [];
+    for (let i=0;i<keys.length;i++) for (let j=0;j<keys.length;j++) {
+      const pairs = cpds.filter(c=>c[keys[i]]!==null&&c[keys[j]]!==null);
+      if (pairs.length<2) { pts.push({x:j,y:i,v:0}); continue; }
+      const a=pairs.map(c=>c[keys[i]]), b=pairs.map(c=>c[keys[j]]);
+      const ma=a.reduce((s,v)=>s+v,0)/a.length, mb=b.reduce((s,v)=>s+v,0)/b.length;
+      const num=a.reduce((s,v,k)=>s+(v-ma)*(b[k]-mb),0);
+      const den=Math.sqrt(a.reduce((s,v)=>s+(v-ma)**2,0)*b.reduce((s,v)=>s+(v-mb)**2,0));
+      pts.push({x:j,y:i,v:den?parseFloat((num/den).toFixed(2)):1});
+    }
+    leg.innerHTML='<span><span class="lsq" style="background:#2563a8"></span>positive r</span><span><span class="lsq" style="background:#b84a1a"></span>negative r</span>';
+    plotChart = new Chart(ctx, {type:'scatter', data:{datasets:[{data:pts,backgroundColor:pts.map(d=>d.v>0?`rgba(37,99,168,${Math.max(.12,Math.abs(d.v)*.9)})`:`rgba(184,74,26,${Math.max(.12,Math.abs(d.v)*.9)})`),pointStyle:'rect',pointRadius:22}]}, options:{responsive:true,maintainAspectRatio:false,layout:{padding:34},scales:{x:{type:'linear',min:-.5,max:7.5,ticks:{callback:(_,i)=>labs[i]||'',stepSize:1,font:{size:11}},grid:{display:false}},y:{type:'linear',min:-.5,max:7.5,ticks:{callback:(_,i)=>labs[i]||'',stepSize:1,font:{size:11}},grid:{display:false}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`r = ${c.raw.v}`}}}}});
+  }
+}
+function logistic4PL(x,bot,top,ic50,h){ return bot+(top-bot)/(1+Math.pow(ic50/x,h)); }
+
+function fitDR() {
+  const concs = document.getElementById('dr-conc').value.split(',').map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v));
+  const resps = document.getElementById('dr-resp').value.split(',').map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v));
+  const lbl = document.getElementById('dr-lbl').value.trim() || 'Curve '+(drCurves.length+1);
+  const res = document.getElementById('dr-result');
+  if (concs.length<3||resps.length<3||concs.length!==resps.length) {
+    res.style.display=''; res.innerHTML='<span style="color:var(--danger)">Need ≥3 matching concentration/response pairs.</span>'; return;
+  }
+  const bot=Math.min(...resps), top=Math.max(...resps);
+  const logCs=concs.map(c=>Math.log10(c));
+  const mid=(Math.max(...logCs)+Math.min(...logCs))/2;
+  let best={ic50:null,h:1,sse:Infinity};
+  for (let li=mid-2.5;li<=mid+2.5;li+=0.04) {
+    for (const h of [0.5,0.7,0.9,1.0,1.1,1.3,1.5,2.0]) {
+      const ic50=Math.pow(10,li);
+      let sse=0; concs.forEach((c,i)=>{const p=logistic4PL(c,bot,top,ic50,h);sse+=(p-resps[i])**2;});
+      if(sse<best.sse) best={ic50,h,sse};
+    }
+  }
+  const col = COLORS[drCurves.length%COLORS.length];
+  drCurves.push({lbl,concs,resps,ic50:best.ic50,h:best.h,bot,top,col});
+  res.style.display='';
+  const ic50disp = best.ic50<1?best.ic50.toFixed(3):best.ic50<10?best.ic50.toFixed(2):best.ic50<100?best.ic50.toFixed(1):Math.round(best.ic50);
+  res.innerHTML=`IC<sub>50</sub> = <strong>${ic50disp} nM</strong> &nbsp;|&nbsp; Hill = ${best.h.toFixed(1)} &nbsp;|&nbsp; Bottom = ${bot.toFixed(1)}% &nbsp; Top = ${top.toFixed(1)}%`;
+  drawSingle();
+  rall();
+  const _ssd=document.getElementById('ss-dr');if(_ssd)_ssd.textContent=drCurves.length;
+  renderCurvesList();
+}
+
+function drawSingle() {
+  if (dri) { dri.destroy(); dri=null; }
+  const curve=drCurves[drCurves.length-1];
+  const lo=Math.min(...curve.concs)*0.3, hi=Math.max(...curve.concs)*3;
+  const line=[]; for(let i=0;i<=100;i++){const c=lo*Math.pow(hi/lo,i/100);line.push({x:c,y:parseFloat(logistic4PL(c,curve.bot,curve.top,curve.ic50,curve.h).toFixed(2))});}
+  dri = new Chart(document.getElementById('drchart').getContext('2d'), {type:'scatter',data:{datasets:[
+    {label:'Fit',data:line,type:'line',borderColor:curve.col,backgroundColor:'transparent',pointRadius:0,borderWidth:2,tension:0},
+    {label:'Data',data:curve.concs.map((c,i)=>({x:c,y:curve.resps[i]})),backgroundColor:curve.col+'cc',pointRadius:6}
+  ]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:10},plugins:{legend:{display:false}},scales:{x:{type:'logarithmic',title:{display:true,text:'Concentration (nM)',font:{size:12}}},y:{min:0,max:100,title:{display:true,text:'Response (%)',font:{size:12}}}}}});
+}
+
+function rall() {
+  if (alli) { alli.destroy(); alli=null; }
+  if (!drCurves.length) return;
+  const ds = drCurves.flatMap(curve => {
+    const lo=Math.min(...curve.concs)*0.3, hi=Math.max(...curve.concs)*3;
+    const line=[]; for(let i=0;i<=100;i++){const c=lo*Math.pow(hi/lo,i/100);line.push({x:c,y:parseFloat(logistic4PL(c,curve.bot,curve.top,curve.ic50,curve.h).toFixed(2))});}
+    return [
+      {label:curve.lbl,data:line,type:'line',borderColor:curve.col,backgroundColor:'transparent',pointRadius:0,borderWidth:2,tension:0},
+      {label:'',data:curve.concs.map((c,i)=>({x:c,y:curve.resps[i]})),backgroundColor:curve.col+'cc',pointRadius:5,showLine:false}
+    ];
+  });
+  alli = new Chart(document.getElementById('allchart').getContext('2d'), {type:'scatter',data:{datasets:ds},options:{responsive:true,maintainAspectRatio:false,layout:{padding:10},plugins:{legend:{display:false}},scales:{x:{type:'logarithmic',title:{display:true,text:'Concentration (nM)',font:{size:12}}},y:{min:0,max:100,title:{display:true,text:'Response (%)',font:{size:12}}}}}});
+}
+
+function renderCurvesList() {
+  const el=document.getElementById('curves-list');
+  el.innerHTML=drCurves.map((c,i)=>{
+    const ic50d=c.ic50<1?c.ic50.toFixed(3):c.ic50<10?c.ic50.toFixed(2):c.ic50<100?c.ic50.toFixed(1):Math.round(c.ic50);
+    return `<div class="curve-item"><span class="curve-dot" style="background:${c.col}"></span><span style="flex:1">${c.lbl}</span><span style="color:var(--muted)">${ic50d} nM</span><button class="btn-danger btn-sm" onclick="rmCurve(${i})" style="padding:2px 8px;font-size:10px">×</button></div>`;
+  }).join('');
+}
+
+function rmCurve(i) { drCurves.splice(i,1); rall(); renderCurvesList(); const _ssd=document.getElementById('ss-dr');if(_ssd)_ssd.textContent=drCurves.length; }
+
+function clearDR() {
+  ['dr-conc','dr-resp','dr-lbl'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('dr-result').style.display='none';
+  if(dri){dri.destroy();dri=null;}
+}
+
+// CSV import
+function importCSV(txt) {
+  const raw = txt||document.getElementById('csv-input').value.trim();
+  if (!raw) return;
+  const lines = raw.split('\n').filter(l=>l.trim());
+  const hdr = lines[0].split(',').map(h=>h.trim().toLowerCase());
+  const get = (row,k) => { const i=hdr.indexOf(k); return i>=0?parseFloat(row[i].trim())||null:null; };
+  const getS = (row,k) => { const i=hdr.indexOf(k.toLowerCase()); return i>=0?row[i].trim():null; };
+  let added=0;
+  for (let r=1;r<lines.length;r++) {
+    const row=lines[r].split(',');
+    const tr2=get(row,'tr2'), thp=get(row,'thp');
+    const shift=(tr2&&thp)?parseFloat((thp/tr2).toFixed(1)):null;
+    cpds.push({
+      id:getS(row,'id')||'CPD-'+String(cpds.length+1).padStart(3,'0'),
+      tr2,tr1:get(row,'tr1'),tr3:get(row,'tr3'),
+      fp2:get(row,'fp2'),fp1:get(row,'fp1'),fp3:get(row,'fp3'),
+      thp,mol:get(row,'mol'),shift,
+      mw:get(row,'mw'),logp:get(row,'logp'),tpsa:get(row,'tpsa'),
+      ser:getS(row,'series')||'—',note:getS(row,'notes')||''
+    });
+    added++;
+  }
+  upd();
+  document.getElementById('import-msg').innerHTML=`<span style="color:var(--accent)">Imported ${added} compound${added>1?'s':''} successfully.</span>`;
+}
+
+function handleFile(e) {
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{ document.getElementById('csv-input').value=ev.target.result; importCSV(ev.target.result); };
+  reader.readAsText(file);
+}
+
+// Export
+function exportCSV() {
+  const hdr='id,tr2,tr1,tr3,fp2,fp1,fp3,thp,mol,mw,logp,tpsa,notes';
+  const rows=cpds.map(c=>[c.id,c.tr2,c.tr1,c.tr3,c.fp2,c.fp1,c.fp3,c.thp,c.mol,c.mw,c.logp,c.tpsa,c.note].map(v=>v??'').join(','));
+  const blob=new Blob([[hdr,...rows].join('\n')],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='ythdf-compounds.csv'; a.click();
+}
+
+function loadDemo() {
+  cpds=[
+    {id:'CPD-001',tr2:3.8,tr1:28,tr3:15,dc1:480,fp2:9,fp1:55,fp3:30,thp:0.210,mol:0.180,shift:55.3,mw:412,logp:2.1,tpsa:82,note:'lead',
+     smiles:'Cc1ccc(cc1)c2cc(=O)c3c(O)cccc3o2'},
+    {id:'CPD-002',tr2:18,tr1:95,tr3:62,dc1:1200,fp2:38,fp1:180,fp3:110,thp:0.820,mol:0.740,shift:45.6,mw:385,logp:2.8,tpsa:94,note:'',
+     smiles:'c1ccc2c(c1)cc(=O)n2Cc3ccncc3'},
+    {id:'CPD-003',tr2:0.9,tr1:6,tr3:4,dc1:320,fp2:2.2,fp1:18,fp3:10,thp:0.095,mol:0.072,shift:105.6,mw:448,logp:1.9,tpsa:88,note:'best',
+     smiles:'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'},
+    {id:'CPD-004',tr2:55,tr1:280,tr3:190,dc1:2800,fp2:110,fp1:550,fp3:380,thp:2.100,mol:1.800,shift:38.2,mw:360,logp:3.4,tpsa:70,note:'',
+     smiles:'CC(=O)Nc1ccc(O)cc1'},
+    {id:'CPD-005',tr2:8.2,tr1:44,tr3:28,dc1:950,fp2:19,fp1:88,fp3:52,thp:0.430,mol:0.380,shift:52.4,mw:428,logp:2.3,tpsa:86,note:'',
+     smiles:'CC(C)Cc1ccc(cc1)C(C)C(=O)O'},
+    {id:'CPD-006',tr2:142,tr1:680,tr3:420,dc1:null,fp2:290,fp1:1200,fp3:890,thp:5.400,mol:4.800,shift:38.0,mw:342,logp:4.1,tpsa:65,note:'inactive',
+     smiles:'CC(=O)Oc1ccccc1C(=O)O'},
+  ];
+  upd();
+}
+
+// ── Firebase ─────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDTEYfqVxRFODdnddVplQQGRJHPM80_HTA",
+  authDomain: "epibase-e36ba.firebaseapp.com",
+  projectId: "epibase-e36ba",
+  storageBucket: "epibase-e36ba.firebasestorage.app",
+  messagingSenderId: "67631441023",
+  appId: "1:67631441023:web:09f80abad6405040554b4a"
+};
+firebase.initializeApp(firebaseConfig);
+const db   = firebase.firestore();
+const auth = firebase.auth();
+
+let currentUser = null;
+
+// ── Auth flow ─────────────────────────────────────────────────────
+async function isApprovedUser(email) {
+  try {
+    // Bootstrap: if no users exist at all, approve the first person and make them admin
+    const allUsers = await db.collection('users').limit(1).get();
+    if (allUsers.empty) {
+      await db.collection('users').doc(email).set({ approved: true, addedBy: 'bootstrap', addedAt: new Date().toISOString() });
+      return true;
+    }
+    const doc = await db.collection('users').doc(email).get();
+    return doc.exists && doc.data().approved === true;
+  } catch(e) { return false; }
+}
+
+auth.onAuthStateChanged(async function(user) {
+  if (!user) {
+    showLoginScreen();
+    return;
+  }
+  const approved = await isApprovedUser(user.email);
+  if (!approved) {
+    document.getElementById('login-error').style.display = '';
+    document.getElementById('login-error').textContent = `Access denied. ${user.email} is not an approved user. Please contact your administrator.`;
+    showLoginScreen();
+    await auth.signOut();
+    return;
+  }
+  currentUser = user;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'grid';
+  document.getElementById('sb-user-email').textContent = user.email;
+  document.getElementById('admin-current-user').textContent = user.email;
+  initEventListeners();
+  await loadData();
+  upd();
+  loadAdminUsers();
+});
+
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+window.googleSignIn = function() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  document.getElementById('login-error').style.display = '';
+  document.getElementById('login-error').textContent = 'Signing in...';
+  auth.signInWithPopup(provider).then(function(result) {
+    document.getElementById('login-error').style.display = 'none';
+  }).catch(function(err) {
+    // If popup blocked, fall back to redirect
+    if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
+      auth.signInWithRedirect(provider);
+    } else {
+      document.getElementById('login-error').style.display = '';
+      document.getElementById('login-error').textContent = 'Sign-in failed: ' + err.message;
+    }
+  });
+}
+
+// Handle redirect result
+auth.getRedirectResult().then(function(result) {
+  // handled by onAuthStateChanged
+}).catch(function(err) {
+  if (err && err.code !== 'auth/no-auth-event') {
+    console.log('Redirect error:', err.message);
+  }
+});
+
+function firebaseSignOut() {
+  auth.signOut();
+  document.getElementById('admin-modal').style.display = 'none';
+}
+
+// ── Save / Load ───────────────────────────────────────────────────
+let _saveTimer = null;
+function saveData() {
+  // Debounce — wait 800ms after last change before writing to Firestore
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async function() {
+    if (!currentUser) return;
+    try {
+      await db.collection('appdata').doc('compounds').set({ data: JSON.stringify(cpds) });
+      await db.collection('appdata').doc('synthplans').set({ data: JSON.stringify(synthPlans) });
+    } catch(e) { console.error('Save failed:', e); }
+  }, 800);
+}
+
+async function loadData() {
+  try {
+    const cpdDoc = await db.collection('appdata').doc('compounds').get();
+    if (cpdDoc.exists) cpds = JSON.parse(cpdDoc.data().data);
+  } catch(e) {}
+  try {
+    const synDoc = await db.collection('appdata').doc('synthplans').get();
+    if (synDoc.exists) synthPlans = JSON.parse(synDoc.data().data);
+  } catch(e) {}
+}
+
+// ── Admin: user management ────────────────────────────────────────
+async function loadAdminUsers() {
+  const list = document.getElementById('admin-user-list');
+  if (!list) return;
+  try {
+    const snap = await db.collection('users').get();
+    list.innerHTML = '';
+    if (snap.empty) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--muted)">No approved users yet.</div>';
+      return;
+    }
+    snap.forEach(doc => {
+      const email = doc.id;
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface2);border-radius:var(--radius);border:0.5px solid var(--border)';
+      div.innerHTML = `<span style="font-size:13px">${email}</span><button onclick="adminRemoveUser('${email}')" style="font-size:11px;padding:3px 8px;border:0.5px solid rgba(139,32,32,.3);border-radius:var(--radius);background:none;cursor:pointer;color:var(--danger)">Remove</button>`;
+      list.appendChild(div);
+    });
+  } catch(e) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--danger)">Could not load users.</div>';
+  }
+}
+
+async function adminAddUser() {
+  const email = document.getElementById('admin-email-input').value.trim().toLowerCase();
+  const msg = document.getElementById('admin-msg');
+  if (!email || !email.includes('@')) { msg.style.color='var(--danger)'; msg.textContent='Please enter a valid email.'; return; }
+  try {
+    await db.collection('users').doc(email).set({ approved: true, addedBy: currentUser.email, addedAt: new Date().toISOString() });
+    document.getElementById('admin-email-input').value = '';
+    msg.style.color = 'var(--accent)';
+    msg.textContent = `✓ ${email} added successfully.`;
+    loadAdminUsers();
+    setTimeout(() => msg.textContent = '', 3000);
+  } catch(e) { msg.style.color='var(--danger)'; msg.textContent='Failed to add user: ' + e.message; }
+}
+
+async function adminRemoveUser(email) {
+  if (email === currentUser.email) { alert("You can't remove yourself."); return; }
+  if (!confirm(`Remove ${email} from approved users?`)) return;
+  try {
+    await db.collection('users').doc(email).delete();
+    loadAdminUsers();
+  } catch(e) { alert('Failed to remove user: ' + e.message); }
+}
+// ─────────────────────────────────────────────────────────────────
+// ── Custom date picker ──────────────────────────────────────────
+const calState = {};
+
+function toggleCal(calId) {
+  const cal = document.getElementById(calId);
+  const isOpen = cal.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.cal-dropdown.open').forEach(c => c.classList.remove('open'));
+  if (!isOpen) {
+    // Determine linked input id
+    const inputId = calId === 'cal-mm' ? 'mm-date' :
+                    calId === 'cal-tr' ? 'f-tr-date' :
+                    calId === 'cal-fp' ? 'f-fp-date' : 'f-cb-date';
+    if (!calState[calId]) {
+      const now = new Date();
+      calState[calId] = { year: now.getFullYear(), month: now.getMonth(), inputId };
+    }
+    renderCal(calId);
+    cal.classList.add('open');
+  }
+}
+
+function renderCal(calId) {
+  const cal = document.getElementById(calId);
+  const s = calState[calId];
+  const now = new Date();
+  const selected = document.getElementById(s.inputId).value;
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dayNames = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+  const firstDay = new Date(s.year, s.month, 1).getDay();
+  const daysInMonth = new Date(s.year, s.month + 1, 0).getDate();
+  const daysInPrev = new Date(s.year, s.month, 0).getDate();
+
+  let daysCells = '';
+  // Prev month padding
+  for (let d = firstDay - 1; d >= 0; d--) {
+    daysCells += `<button class="cal-day other-month" disabled>${daysInPrev - d}</button>`;
+  }
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${s.year}-${String(s.month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = d === now.getDate() && s.month === now.getMonth() && s.year === now.getFullYear();
+    const isSel = dateStr === selected;
+    daysCells += `<button class="cal-day${isToday?' today':''}${isSel?' selected':''}" onclick="pickDate('${calId}','${dateStr}')">${d}</button>`;
+  }
+  // Next month padding
+  const remaining = 42 - firstDay - daysInMonth;
+  for (let d = 1; d <= remaining; d++) {
+    daysCells += `<button class="cal-day other-month" disabled>${d}</button>`;
+  }
+
+  cal.innerHTML = `
+    <div class="cal-header">
+      <button class="cal-nav" onclick="moveCal('${calId}',-1)">‹</button>
+      <span class="cal-month-label">${monthNames[s.month]} ${s.year}</span>
+      <button class="cal-nav" onclick="moveCal('${calId}',1)">›</button>
+    </div>
+    <div class="cal-grid">
+      ${dayNames.map(d=>`<div class="cal-day-name">${d}</div>`).join('')}
+      ${daysCells}
+    </div>`;
+}
+
+function moveCal(calId, dir) {
+  const s = calState[calId];
+  s.month += dir;
+  if (s.month > 11) { s.month = 0; s.year++; }
+  if (s.month < 0)  { s.month = 11; s.year--; }
+  renderCal(calId);
+}
+
+function pickDate(calId, dateStr) {
+  const s = calState[calId];
+  document.getElementById(s.inputId).value = dateStr;
+  document.getElementById(calId).classList.remove('open');
+}
+
+// Close calendar on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.datepicker-wrap')) {
+    document.querySelectorAll('.cal-dropdown.open').forEach(c => c.classList.remove('open'));
+  }
+});
+// ────────────────────────────────────────────────────────────────
+
+// Init handled by Firebase auth state change above
+// ────────────────────────────────────────────────────────────────
+
+function initEventListeners() {
+  const dc = document.getElementById('demo-confirm');
+  if (dc) dc.addEventListener('click', function(e) { if (e.target === this) this.style.display='none'; });
+  const mm = document.getElementById('meas-modal');
+  if (mm) mm.addEventListener('click', function(e) { if (e.target === this) closeMeasModal(); });
+  const cm = document.getElementById('cmp-modal');
+  if (cm) cm.addEventListener('click', function(e) { if (e.target === this) closeCmp(); });
+  const cp = document.getElementById('cpd-modal');
+  if (cp) cp.addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closeModal(); closeCmp(); closeMeasModal(); document.getElementById('demo-confirm').style.display='none'; }
+});
+
+
+</script>
+
+
+  <!-- DEMO CONFIRM MODAL -->
+  <div id="demo-confirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:2000;align-items:center;justify-content:center">
+    <div style="background:var(--surface);border-radius:var(--radius-lg);border:0.5px solid var(--border);padding:1.75rem;width:380px;max-width:92vw">
+      <div style="font-size:16px;font-weight:600;margin-bottom:8px">Load demo data?</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:1.5rem">This will add 6 example compounds to your database. Your existing compounds will not be removed.</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('demo-confirm').style.display='none'" style="padding:7px 16px">Cancel</button>
+        <button class="btn-primary" onclick="document.getElementById('demo-confirm').style.display='none';loadDemo()">Add demo compounds</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARE MODAL -->
+  <div id="cmp-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;align-items:center;justify-content:center">
+    <div style="background:var(--surface);border-radius:var(--radius-lg);border:0.5px solid var(--border);width:720px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:1.75rem;position:relative;font-family:'Inter', sans-serif">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+        <h2 style="font-size:18px;font-weight:600;margin:0;font-family:'Inter', sans-serif">Compound Comparison</h2>
+        <button onclick="closeCmp()" style="font-size:18px;line-height:1;padding:4px 10px;border:none;background:none;cursor:pointer;color:var(--muted)">×</button>
+      </div>
+      <div id="cmp-body"></div>
+    </div>
+  </div>
+
+  <!-- COMPOUND DETAIL MODAL -->
+  <div id="cpd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:999;align-items:center;justify-content:center">
+    <div style="background:var(--surface);border-radius:var(--radius-lg);border:0.5px solid var(--border);width:520px;max-width:92vw;max-height:88vh;overflow-y:auto;padding:1.75rem;position:relative">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+        <div>
+          <div style="font-size:11px;color:var(--muted);font-family:'Inter', sans-serif;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px">Compound</div>
+          <div id="modal-id" style="font-size:22px;font-weight:600;letter-spacing:-.01em"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="addMeasFromModal()" style="font-size:12px;padding:6px 14px;border:0.5px solid var(--border2);border-radius:var(--radius);background:#E1F5EE;cursor:pointer;color:#085041;font-weight:500">+ Measurement</button>
+          <button onclick="editFromModal()" style="font-size:12px;padding:6px 14px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface);cursor:pointer;color:var(--text)">Edit</button>
+          <button onclick="closeModal()" style="font-size:18px;line-height:1;padding:4px 10px;border:none;background:none;cursor:pointer;color:var(--muted)">×</button>
+        </div>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ADD MEASUREMENT MODAL -->
+  <div id="meas-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1001;align-items:center;justify-content:center">
+    <div style="background:var(--surface);border-radius:var(--radius-lg);border:0.5px solid var(--border);width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:1.75rem;position:relative">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+        <div>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px">Add measurement</div>
+          <div id="meas-modal-id" style="font-size:18px;font-weight:600"></div>
+        </div>
+        <button onclick="closeMeasModal()" style="font-size:18px;line-height:1;padding:4px 10px;border:none;background:none;cursor:pointer;color:var(--muted)">×</button>
+      </div>
+      <div class="fld" style="margin-bottom:1.25rem">
+        <label>Date</label>
+        <div class="datepicker-wrap" style="position:relative"><input type="text" id="mm-date" class="datepicker-input" placeholder="Select date" readonly onclick="toggleCal('cal-mm')" style="width:180px"><div id="cal-mm" class="cal-dropdown"></div></div>
+      </div>
+      <div class="assay-hdr"><span class="assay-pill pill-tr">TR-FRET</span></div>
+      <div class="form-grid g3" style="margin-bottom:1rem">
+        <div class="fld"><label>YTHDF2 (µM)</label><input id="mm-tr2" type="number" step="0.1" placeholder="—"></div>
+        <div class="fld"><label>YTHDF1 (µM)</label><input id="mm-tr1" type="number" step="0.1" placeholder="—"></div>
+        <div class="fld"><label>YTHDF3 (µM)</label><input id="mm-tr3" type="number" step="0.1" placeholder="—"></div>
+        <div class="fld"><label>DC1 (µM)</label><input id="mm-dc1" type="number" step="0.1" placeholder="—"></div>
+      </div>
+      <div class="assay-hdr"><span class="assay-pill pill-fp">FP</span></div>
+      <div class="form-grid g3" style="margin-bottom:1rem">
+        <div class="fld"><label>YTHDF2 (µM)</label><input id="mm-fp2" type="number" step="0.1" placeholder="—"></div>
+        <div class="fld"><label>YTHDF1 (µM)</label><input id="mm-fp1" type="number" step="0.1" placeholder="—"></div>
+        <div class="fld"><label>YTHDF3 (µM)</label><input id="mm-fp3" type="number" step="0.1" placeholder="—"></div>
+        <div class="fld"><label>YTHDC1 (µM)</label><input id="mm-fdc1" type="number" step="0.1" placeholder="—"></div>
+      </div>
+      <div class="assay-hdr"><span class="assay-pill pill-cb">Cytotoxicity</span></div>
+      <div class="form-grid g3" style="margin-bottom:1.5rem">
+        <div class="fld"><label>THP-1 (µM)</label><input id="mm-thp" type="number" step="0.001" placeholder="—"></div>
+        <div class="fld"><label>MOLM-13 (µM)</label><input id="mm-mol" type="number" step="0.001" placeholder="—"></div>
+      </div>
+      <div class="btn-row" style="margin-top:0">
+        <button class="btn-primary" onclick="saveMeasurement()">Save measurement</button>
+        <button onclick="closeMeasModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+<!-- CUSTOM PLOT TOOLTIP -->
+<div id="plot-tooltip" style="
+  display:none; position:fixed; z-index:4000; pointer-events:none;
+  background:#fff; border:0.5px solid rgba(0,0,0,0.15); border-radius:8px;
+  box-shadow:0 4px 16px rgba(0,0,0,0.13); padding:10px 13px; min-width:160px;
+  font-family:'Inter',sans-serif; font-size:12px; line-height:1.5;
+"></div>
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:#16385a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem">
+  <div style="text-align:center;margin-bottom:1rem">
+    <div style="font-size:32px;font-weight:700;color:#fff;letter-spacing:-.02em">Epi<span style="color:#5DCAA5">base</span></div>
+    <div style="font-size:13px;color:rgba(255,255,255,.45);margin-top:6px;letter-spacing:.04em;text-transform:uppercase">Research Database</div>
+  </div>
+  <button id="google-signin-btn" onclick="googleSignIn()" style="display:flex;align-items:center;gap:12px;background:#fff;color:#333;border:none;border-radius:8px;padding:12px 24px;font-size:14px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2)">
+    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Sign in with Google
+  </button>
+  <div id="login-error" style="display:none;color:#ff8a80;font-size:13px;text-align:center;max-width:300px"></div>
+  <div style="font-size:11px;color:rgba(255,255,255,.25);margin-top:2rem">Access restricted to approved users only</div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);border:0.5px solid var(--border);width:460px;max-width:95vw;max-height:88vh;overflow-y:auto;padding:1.75rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+      <h2 style="font-size:18px;font-weight:600;margin:0">User Management</h2>
+      <button onclick="document.getElementById('admin-modal').style.display='none'" style="font-size:18px;line-height:1;padding:4px 10px;border:none;background:none;cursor:pointer;color:var(--muted)">×</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:1rem">Only approved Google email addresses can access Epibase.</div>
+    <div style="display:flex;gap:8px;margin-bottom:1.25rem">
+      <input id="admin-email-input" type="email" placeholder="user@gmail.com" style="flex:1;font-size:13px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--text)">
+      <button onclick="adminAddUser()" style="background:#1D9E75;color:#fff;border:none;border-radius:var(--radius);padding:8px 16px;font-size:13px;cursor:pointer;white-space:nowrap">Add user</button>
+    </div>
+    <div id="admin-user-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div id="admin-msg" style="margin-top:10px;font-size:12px;color:var(--accent)"></div>
+    <div style="margin-top:1.5rem;border-top:0.5px solid var(--border);padding-top:1rem">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Signed in as</div>
+      <div id="admin-current-user" style="font-size:13px;font-weight:500"></div>
+      <button onclick="firebaseSignOut()" style="margin-top:10px;font-size:12px;padding:6px 14px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface);cursor:pointer;color:var(--muted)">Sign out</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
